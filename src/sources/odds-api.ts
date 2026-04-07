@@ -1,3 +1,5 @@
+import { recordQuotaResponse } from '../quota.js'
+
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4'
 
 export interface OddsApiGameData {
@@ -52,6 +54,7 @@ async function fetchSport(
   })
   const res = await fetch(`${ODDS_API_BASE}/sports/${sportKey}/odds?${params}`)
   if (!res.ok) throw new Error(`Odds API ${sportKey} error: ${res.status}`)
+  recordQuotaResponse(res.headers)
   const data = (await res.json()) as OddsApiGame[]
 
   const results: OddsApiGameData[] = []
