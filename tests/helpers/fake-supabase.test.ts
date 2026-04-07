@@ -60,4 +60,27 @@ describe('fake-supabase', () => {
       .limit(2)
     expect(sel.data?.map((r) => r.id)).toEqual(['b', 'c'])
   })
+
+  it('in() filter narrows to rows whose column matches one of the values', async () => {
+    await fake.from('edge_picks').insert({ id: 'a', sport: 'mlb' })
+    await fake.from('edge_picks').insert({ id: 'b', sport: 'nba' })
+    await fake.from('edge_picks').insert({ id: 'c', sport: 'nhl' })
+    const sel = await fake.from('edge_picks').select('*').in('sport', ['mlb', 'nhl'])
+    expect(sel.data?.map((r) => r.id).sort()).toEqual(['a', 'c'])
+  })
+
+  it('is(column, null) matches rows where the column is null or undefined', async () => {
+    await fake.from('edge_picks').insert({ id: 'a', line: null })
+    await fake.from('edge_picks').insert({ id: 'b', line: 8.5 })
+    await fake.from('edge_picks').insert({ id: 'c' }) // line undefined
+    const sel = await fake.from('edge_picks').select('*').is('line', null)
+    expect(sel.data?.map((r) => r.id).sort()).toEqual(['a', 'c'])
+  })
+
+  it('not(column, "is", null) matches rows where the column has a non-null value', async () => {
+    await fake.from('edge_picks').insert({ id: 'a', line: null })
+    await fake.from('edge_picks').insert({ id: 'b', line: 8.5 })
+    const sel = await fake.from('edge_picks').select('*').not('line', 'is', null)
+    expect(sel.data?.map((r) => r.id)).toEqual(['b'])
+  })
 })
