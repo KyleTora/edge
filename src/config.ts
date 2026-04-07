@@ -34,8 +34,12 @@ export function loadEnv(): Env {
   return { ODDS_API_KEY: key }
 }
 
+export function resolveEdgeHome(): string {
+  return process.env.EDGE_HOME ?? process.cwd()
+}
+
 export function loadConfigFromDisk(path = 'edge.config.json'): Config {
-  const absolute = resolve(process.cwd(), path)
+  const absolute = resolve(resolveEdgeHome(), path)
   const raw = JSON.parse(readFileSync(absolute, 'utf8'))
   return parseConfig(raw)
 }

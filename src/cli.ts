@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { loadConfigFromDisk, loadEnv } from './config.js'
+import { loadConfigFromDisk, loadEnv, resolveEdgeHome } from './config.js'
 import { applySchema } from './db/schema.js'
 import { runScan } from './commands/scan.js'
 
@@ -17,7 +17,7 @@ program
     try {
       const config = loadConfigFromDisk()
       const env = loadEnv()
-      const dbPath = resolve(process.cwd(), 'data/edge.db')
+      const dbPath = resolve(resolveEdgeHome(), 'data/edge.db')
       mkdirSync(dirname(dbPath), { recursive: true })
       const db = new Database(dbPath)
       applySchema(db)

@@ -34,6 +34,15 @@ Pinnacle (sharp anchor) and comparing prices to your allowlisted books.
    npm link
    ```
 
+   After `npm link`, set `EDGE_HOME` to the project directory so `edge` can find
+   its config and database from anywhere:
+
+   ```bash
+   export EDGE_HOME=/Users/kyletora/Desktop/Coding/edge
+   ```
+
+   (Add to your shell profile to make permanent.)
+
    Or run directly with `npm run dev` (uses `tsx`).
 
 ## Usage
