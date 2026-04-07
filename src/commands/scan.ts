@@ -1,7 +1,15 @@
 import type Database from 'better-sqlite3'
 import type { Config, Env } from '../config.js'
-import { fetchActionNetworkNba } from '../sources/action-network.js'
-import { fetchPinnacleNba } from '../sources/odds-api.js'
+import {
+  fetchActionNetworkNba,
+  fetchActionNetworkMlb,
+  fetchActionNetworkNhl,
+} from '../sources/action-network.js'
+import {
+  fetchPinnacleNba,
+  fetchPinnacleMlb,
+  fetchPinnacleNhl,
+} from '../sources/odds-api.js'
 import { joinSources } from '../sources/normalize.js'
 import { scan } from '../engine/scanner.js'
 import { insertPick, listPicksForDate, type PickRow } from '../db/queries.js'
@@ -24,12 +32,26 @@ export async function runScan({
 }: RunScanInput): Promise<PickRow[]> {
   const newPicks: PickRow[] = []
 
-  if (config.sports.includes('nba')) {
+  const sportFetchers: Record<
+    string,
+    {
+      actionNetwork: () => Promise<Awaited<ReturnType<typeof fetchActionNetworkNba>>>
+      pinnacle: (key: string) => Promise<Awaited<ReturnType<typeof fetchPinnacleNba>>>
+    }
+  > = {
+    nba: { actionNetwork: fetchActionNetworkNba, pinnacle: fetchPinnacleNba },
+    mlb: { actionNetwork: fetchActionNetworkMlb, pinnacle: fetchPinnacleMlb },
+    nhl: { actionNetwork: fetchActionNetworkNhl, pinnacle: fetchPinnacleNhl },
+  }
+
+  for (const sport of config.sports) {
+    const fetchers = sportFetchers[sport]
+    if (!fetchers) continue
     const [actionNetwork, pinnacle] = await Promise.all([
-      fetchActionNetworkNba(),
-      fetchPinnacleNba(env.ODDS_API_KEY),
+      fetchers.actionNetwork(),
+      fetchers.pinnacle(env.ODDS_API_KEY),
     ])
-    const snapshots = joinSources({ sport: 'nba', actionNetwork, pinnacle })
+    const snapshots = joinSources({ sport, actionNetwork, pinnacle })
     const picks = scan({ snapshots, config, detectedAt })
     for (const p of picks) {
       if (insertPick(db, p)) newPicks.push(p)
