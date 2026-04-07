@@ -114,7 +114,7 @@ describe('e2e: scan', () => {
     await runScan({
       db,
       config,
-      env: { ODDS_API_KEY: 'FAKE' },
+      env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       detectedAt: '2026-04-06T18:00:00Z',
     })
     const rows = listPicksForDate(db, '2026-04-07')
@@ -124,8 +124,8 @@ describe('e2e: scan', () => {
   })
 
   it('is idempotent: running twice does not duplicate', async () => {
-    await runScan({ db, config, env: { ODDS_API_KEY: 'FAKE' }, detectedAt: '2026-04-06T18:00:00Z' })
-    await runScan({ db, config, env: { ODDS_API_KEY: 'FAKE' }, detectedAt: '2026-04-06T19:00:00Z' })
+    await runScan({ db, config, env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' }, detectedAt: '2026-04-06T18:00:00Z' })
+    await runScan({ db, config, env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' }, detectedAt: '2026-04-06T19:00:00Z' })
     const rows = listPicksForDate(db, '2026-04-07')
     const denPicks = rows.filter((r) => r.side === 'home' && r.market === 'moneyline')
     expect(denPicks).toHaveLength(1)

@@ -94,7 +94,7 @@ describe('runReport', () => {
   it('returns rendered email payload in dry-run mode', async () => {
     const result = await runReport({
       config,
-      env: { ODDS_API_KEY: 'FAKE' },
+      env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['nba'],
       runLabel: '4pm ET',
       runDate: '2026-04-07',
@@ -110,7 +110,7 @@ describe('runReport', () => {
   it('respects the sports filter (overrides config.sports)', async () => {
     const result = await runReport({
       config,
-      env: { ODDS_API_KEY: 'FAKE' },
+      env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['mlb'],
       runLabel: '11am ET (MLB only)',
       runDate: '2026-04-07',
@@ -123,7 +123,7 @@ describe('runReport', () => {
     const tightConfig = { ...config, ev_threshold: 0.99 }
     const result = await runReport({
       config: tightConfig,
-      env: { ODDS_API_KEY: 'FAKE' },
+      env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['nba'],
       runLabel: '4pm ET',
       runDate: '2026-04-07',
