@@ -124,3 +124,56 @@ export async function listPicksAwaitingGrade(
   const graded = new Set((gradesRes.data ?? []).map((g: { pick_id: string }) => g.pick_id))
   return picks.filter((p) => !graded.has(p.id))
 }
+
+export interface ClosingLineRow {
+  pick_id: string
+  closed_at: string
+  sharp_close: number
+  sharp_implied: number
+  best_book_close: number | null
+  capture_lag_min: number
+}
+
+export async function insertClosingLine(
+  supabase: EdgeSupabase,
+  row: ClosingLineRow
+): Promise<void> {
+  const res = await supabase.from('edge_closing_lines').upsert(row, { onConflict: 'pick_id' })
+  if (res.error) throw new Error(`insertClosingLine error: ${res.error.message}`)
+}
+
+/**
+ * Picks whose game_time starts within the next `windowMinutes` from `now`
+ * and which do NOT already have a row in edge_closing_lines. Same in-memory
+ * anti-join pattern as listPicksAwaitingGrade.
+ */
+export async function listPicksAwaitingClose(
+  supabase: EdgeSupabase,
+  now: Date,
+  windowMinutes: number
+): Promise<PickRow[]> {
+  const startIso = now.toISOString()
+  const endIso = new Date(now.getTime() + windowMinutes * 60_000).toISOString()
+
+  const picksRes = await supabase
+    .from('edge_picks')
+    .select('*')
+    .gte('game_time', startIso)
+    .lt('game_time', endIso)
+  if (picksRes.error)
+    throw new Error(`listPicksAwaitingClose.picks error: ${picksRes.error.message}`)
+  const picks = (picksRes.data ?? []) as PickRow[]
+  if (picks.length === 0) return []
+
+  const linesRes = await supabase
+    .from('edge_closing_lines')
+    .select('pick_id')
+    .in(
+      'pick_id',
+      picks.map((p) => p.id)
+    )
+  if (linesRes.error)
+    throw new Error(`listPicksAwaitingClose.lines error: ${linesRes.error.message}`)
+  const captured = new Set((linesRes.data ?? []).map((r: { pick_id: string }) => r.pick_id))
+  return picks.filter((p) => !captured.has(p.id))
+}

@@ -141,3 +141,51 @@ describe('grade-related queries', () => {
     expect(r).toBeNull()
   })
 })
+
+import {
+  listPicksAwaitingClose,
+  insertClosingLine,
+  type ClosingLineRow,
+} from '../../src/db/queries.js'
+
+describe('close-related queries', () => {
+  let fake: FakeSupabase
+
+  beforeEach(() => {
+    fake = createFakeSupabase()
+  })
+
+  it('insertClosingLine writes a row', async () => {
+    const row: ClosingLineRow = {
+      pick_id: 'p1',
+      closed_at: '2026-04-07T01:25:00Z',
+      sharp_close: -130,
+      sharp_implied: 0.555,
+      best_book_close: -125,
+      capture_lag_min: -5,
+    }
+    await insertClosingLine(fake as never, row)
+    expect(fake._tables.edge_closing_lines).toEqual([row])
+  })
+
+  it('listPicksAwaitingClose returns picks whose game starts in the next windowMinutes and have no closing line', async () => {
+    const now = new Date('2026-04-07T01:20:00Z')
+    // pick A: starts 5 min from now → in window
+    await upsertPick(fake as never, makePick({ id: 'a', game_time: '2026-04-07T01:25:00Z' }))
+    // pick B: starts 30 min from now → out of 15-min window
+    await upsertPick(fake as never, makePick({ id: 'b', game_time: '2026-04-07T01:50:00Z' }))
+    // pick C: in window but already has closing line
+    await upsertPick(fake as never, makePick({ id: 'c', game_time: '2026-04-07T01:25:00Z' }))
+    await insertClosingLine(fake as never, {
+      pick_id: 'c',
+      closed_at: '2026-04-07T01:24:00Z',
+      sharp_close: -110,
+      sharp_implied: 0.5,
+      best_book_close: null,
+      capture_lag_min: -1,
+    })
+
+    const result = await listPicksAwaitingClose(fake as never, now, 15)
+    expect(result.map((p) => p.id).sort()).toEqual(['a'])
+  })
+})
