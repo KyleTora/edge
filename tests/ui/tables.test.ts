@@ -22,7 +22,7 @@ const pick: PickRow = {
   sharp_book: 'pinnacle',
   sharp_implied: 0.5452,
   ev_pct: 0.05,
-  all_prices: '{}',
+  all_prices: {},
 }
 
 describe('renderPicksTable', () => {

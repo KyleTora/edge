@@ -25,13 +25,23 @@ export function parseConfig(raw: unknown): Config {
 
 export interface Env {
   ODDS_API_KEY: string
+  SUPABASE_URL: string
+  SUPABASE_SERVICE_ROLE_KEY: string
 }
 
 export function loadEnv(): Env {
   loadDotenv()
-  const key = process.env.ODDS_API_KEY
-  if (!key) throw new Error('ODDS_API_KEY missing from .env')
-  return { ODDS_API_KEY: key }
+  const oddsKey = process.env.ODDS_API_KEY
+  if (!oddsKey) throw new Error('ODDS_API_KEY missing from .env')
+  const supabaseUrl = process.env.SUPABASE_URL
+  if (!supabaseUrl) throw new Error('SUPABASE_URL missing from .env')
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing from .env')
+  return {
+    ODDS_API_KEY: oddsKey,
+    SUPABASE_URL: supabaseUrl,
+    SUPABASE_SERVICE_ROLE_KEY: supabaseKey,
+  }
 }
 
 export function resolveEdgeHome(): string {

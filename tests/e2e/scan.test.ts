@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import Database from 'better-sqlite3'
-import { applySchema } from '../../src/db/schema.js'
-import { listPicksForDate } from '../../src/db/queries.js'
 import { runScan } from '../../src/commands/scan.js'
+import { createFakeSupabase, type FakeSupabase } from '../helpers/fake-supabase.js'
 import type { Config } from '../../src/config.js'
 
 const config: Config = {
@@ -90,12 +88,17 @@ const ODDS_API_RESPONSE = [
   },
 ]
 
+const env = {
+  ODDS_API_KEY: 'FAKE',
+  SUPABASE_URL: 'http://fake',
+  SUPABASE_SERVICE_ROLE_KEY: 'fake',
+}
+
 describe('e2e: scan', () => {
-  let db: Database.Database
+  let fake: FakeSupabase
 
   beforeEach(() => {
-    db = new Database(':memory:')
-    applySchema(db)
+    fake = createFakeSupabase()
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
@@ -112,21 +115,31 @@ describe('e2e: scan', () => {
 
   it('inserts a +EV pick into the database', async () => {
     await runScan({
-      db,
+      supabase: fake as never,
       config,
-      env: { ODDS_API_KEY: 'FAKE' },
+      env,
       detectedAt: '2026-04-06T18:00:00Z',
     })
-    const rows = listPicksForDate(db, '2026-04-07')
+    const rows = fake._tables.edge_picks ?? []
     const denPick = rows.find((r) => r.side === 'home' && r.market === 'moneyline')
     expect(denPick).toBeDefined()
     expect(denPick!.best_book).toBe('BetMGM')
   })
 
   it('is idempotent: running twice does not duplicate', async () => {
-    await runScan({ db, config, env: { ODDS_API_KEY: 'FAKE' }, detectedAt: '2026-04-06T18:00:00Z' })
-    await runScan({ db, config, env: { ODDS_API_KEY: 'FAKE' }, detectedAt: '2026-04-06T19:00:00Z' })
-    const rows = listPicksForDate(db, '2026-04-07')
+    await runScan({
+      supabase: fake as never,
+      config,
+      env,
+      detectedAt: '2026-04-06T18:00:00Z',
+    })
+    await runScan({
+      supabase: fake as never,
+      config,
+      env,
+      detectedAt: '2026-04-06T19:00:00Z',
+    })
+    const rows = fake._tables.edge_picks ?? []
     const denPicks = rows.filter((r) => r.side === 'home' && r.market === 'moneyline')
     expect(denPicks).toHaveLength(1)
     expect(denPicks[0]!.detected_at).toBe('2026-04-06T18:00:00Z')

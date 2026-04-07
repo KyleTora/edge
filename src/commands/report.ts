@@ -1,3 +1,4 @@
+import type { EdgeSupabase } from '../db/client.js'
 import type { Config, Env } from '../config.js'
 import {
   fetchActionNetworkNba,
@@ -11,12 +12,13 @@ import {
 } from '../sources/odds-api.js'
 import { joinSources } from '../sources/normalize.js'
 import { scan } from '../engine/scanner.js'
-import type { PickRow } from '../db/queries.js'
+import { upsertPick, type PickRow } from '../db/queries.js'
 import { renderEmail, type RenderedEmail } from '../email/render.js'
 import { sendReportEmail } from '../email/send.js'
 import { getLastQuotaSnapshot } from '../quota.js'
 
 export interface RunReportInput {
+  supabase: EdgeSupabase
   config: Config
   env: Env
   sports: string[]
@@ -60,7 +62,12 @@ export async function runReport(input: RunReportInput): Promise<RunReportResult>
     ])
     const snapshots = joinSources({ sport, actionNetwork, pinnacle })
     const picks = scan({ snapshots, config: input.config, detectedAt })
-    allPicks.push(...picks)
+    for (const p of picks) {
+      // Persist every detected pick (idempotent — duplicates are no-ops).
+      // This is the side-effect that fixes the Phase 1.5 persistence gap.
+      await upsertPick(input.supabase, p)
+      allPicks.push(p)
+    }
   }
 
   allPicks.sort((a, b) => b.ev_pct - a.ev_pct)

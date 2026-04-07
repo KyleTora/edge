@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3'
+import type { EdgeSupabase } from '../db/client.js'
 import type { Config, Env } from '../config.js'
 import {
   fetchActionNetworkNba,
@@ -12,11 +12,11 @@ import {
 } from '../sources/odds-api.js'
 import { joinSources } from '../sources/normalize.js'
 import { scan } from '../engine/scanner.js'
-import { insertPick, listPicksForDate, type PickRow } from '../db/queries.js'
+import { upsertPick, listPicksForDate, type PickRow } from '../db/queries.js'
 import { renderPicksTable } from '../ui/tables.js'
 
 export interface RunScanInput {
-  db: Database.Database
+  supabase: EdgeSupabase
   config: Config
   env: Env
   detectedAt?: string
@@ -24,7 +24,7 @@ export interface RunScanInput {
 }
 
 export async function runScan({
-  db,
+  supabase,
   config,
   env,
   detectedAt = new Date().toISOString(),
@@ -54,7 +54,7 @@ export async function runScan({
     const snapshots = joinSources({ sport, actionNetwork, pinnacle })
     const picks = scan({ snapshots, config, detectedAt })
     for (const p of picks) {
-      if (insertPick(db, p)) newPicks.push(p)
+      if (await upsertPick(supabase, p)) newPicks.push(p)
     }
   }
 
@@ -64,8 +64,8 @@ export async function runScan({
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
     const tomorrowStr = tomorrow.toISOString().slice(0, 10)
     const allPicks = [
-      ...listPicksForDate(db, today),
-      ...listPicksForDate(db, tomorrowStr),
+      ...(await listPicksForDate(supabase, today)),
+      ...(await listPicksForDate(supabase, tomorrowStr)),
     ].sort((a, b) => b.ev_pct - a.ev_pct)
     print(renderPicksTable(allPicks))
   }
