@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
+    "edge:report": "tsx src/cli.ts report",
     "test": "vitest run",
     "test:watch": "vitest"
   },
