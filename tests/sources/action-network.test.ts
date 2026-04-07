@@ -71,7 +71,7 @@ describe('fetchActionNetworkNba', () => {
 
   it('omits completed games', async () => {
     const result = await fetchActionNetworkNba()
-    expect(result.find((g) => g.gameId === '99999')).toBeUndefined()
+    expect(result.find((g) => g.gameId === 'an:99999')).toBeUndefined()
   })
 
   it('maps book ids to names', async () => {

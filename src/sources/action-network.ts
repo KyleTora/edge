@@ -77,7 +77,7 @@ async function fetchScoreboard(sportPath: string): Promise<ActionNetworkOdds[]> 
 
     if (books.length === 0) continue
     results.push({
-      gameId: String(game.id),
+      gameId: 'an:' + String(game.id),
       startTime: game.start_time,
       homeTeam: home.full_name,
       awayTeam: away.full_name,
