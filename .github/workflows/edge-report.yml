@@ -1,0 +1,48 @@
+name: edge daily report
+
+on:
+  schedule:
+    # 15:00 UTC = 11am EDT / 10am EST — morning MLB-only run
+    - cron: '0 15 * * *'
+    # 20:00 UTC = 4pm EDT / 3pm EST — afternoon all-sports run
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      sports:
+        description: 'Comma-separated sports list'
+        required: false
+        default: 'mlb,nba,nhl'
+
+jobs:
+  scan-and-email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Determine sports filter
+        id: sports
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.sports }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+            echo "value=mlb" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=mlb,nba,nhl" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run report
+        run: npm run edge:report -- --sports=${{ steps.sports.outputs.value }}
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
+          REPORT_EMAIL_FROM: ${{ secrets.REPORT_EMAIL_FROM }}
+          EDGE_HOME: ${{ github.workspace }}

@@ -65,6 +65,56 @@ pick captured at first detection is preserved with its original price and EV).
 5. If best price clears the EV threshold, captures the pick to SQLite
 6. Prints all current picks for today/tomorrow ordered by EV%
 
+## Email Automation (Phase 1.5)
+
+`edge` can email you a daily digest of +EV picks via GitHub Actions + Resend.
+
+### One-time setup
+
+1. **Push `edge` to a private GitHub repo.**
+
+   ```bash
+   gh repo create edge --private --source=. --remote=origin --push
+   ```
+
+   (Or create the repo manually in the GitHub UI and push to it.)
+
+2. **Create a Resend account** at [resend.com](https://resend.com) (free tier: 100 emails/day).
+   Generate an API key from the dashboard. Use a "Sending access" key, not full access.
+
+3. **Add four secrets** in your GitHub repo settings → Secrets and variables → Actions:
+
+   - `ODDS_API_KEY` — your Odds API key (same one in your local `.env`)
+   - `RESEND_API_KEY` — from step 2
+   - `REPORT_EMAIL_TO` — the address to send reports to
+   - `REPORT_EMAIL_FROM` — sender address. Use `onboarding@resend.dev` for testing,
+     or a verified domain in production.
+
+4. **Verify the workflow runs** by triggering it manually:
+   GitHub repo → Actions tab → "edge daily report" → "Run workflow"
+
+   Within ~30 seconds you should receive an email.
+
+### Schedule
+
+The workflow runs automatically at:
+
+- **11am ET (15:00 UTC)** — MLB only (catches afternoon baseball games)
+- **4pm ET (20:00 UTC)** — all sports (catches evening NBA/NHL/MLB)
+
+Quota cost: ~16 credits/day = ~480/month, under the 500 free tier.
+
+### Local testing
+
+You can render an email locally without sending it:
+
+```bash
+npm run edge:report -- --sports=mlb --dry-run
+```
+
+This prints the subject, HTML body, and CSV to stdout. Useful for previewing
+formatting changes before pushing.
+
 ## Phase 2 (not yet built)
 
 `edge watch`, `edge shop`, `edge place`, `edge record`, `edge resolve`,
