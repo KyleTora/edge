@@ -4,7 +4,7 @@
   "description": "Personal +EV sports betting CLI",
   "type": "module",
   "bin": {
-    "edge": "./dist/cli.js"
+    "edge": "./dist/src/cli.js"
   },
   "scripts": {
     "build": "tsc",
