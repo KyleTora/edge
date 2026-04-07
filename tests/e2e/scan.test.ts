@@ -6,7 +6,7 @@ import { runScan } from '../../src/commands/scan.js'
 import type { Config } from '../../src/config.js'
 
 const config: Config = {
-  books: ['BetMGM', 'DraftKings', 'bet365'],
+  books: ['BetMGM', 'DraftKings'],
   manual_books: [],
   sharp_anchor: 'pinnacle',
   ev_threshold: 0.02,
@@ -82,26 +82,6 @@ const ODDS_API_RESPONSE = [
             outcomes: [
               { name: 'Over', price: -108, point: 224.5 },
               { name: 'Under', price: -112, point: 224.5 },
-            ],
-          },
-        ],
-      },
-      {
-        key: 'bet365',
-        title: 'bet365',
-        markets: [
-          {
-            key: 'h2h',
-            outcomes: [
-              { name: 'Denver Nuggets', price: -190 },
-              { name: 'Los Angeles Lakers', price: 160 },
-            ],
-          },
-          {
-            key: 'totals',
-            outcomes: [
-              { name: 'Over', price: -110, point: 224.5 },
-              { name: 'Under', price: -110, point: 224.5 },
             ],
           },
         ],

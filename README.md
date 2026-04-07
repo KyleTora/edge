@@ -23,7 +23,7 @@ Pinnacle (sharp anchor) and comparing prices to your allowlisted books.
 
 3. Review `edge.config.json` and adjust:
 
-   - `books` — your sportsbook allowlist (must match Action Network book names: BetMGM, DraftKings, Caesars, BetRivers, FanDuel, Fanatics; bet365 is also supported via The Odds API)
+   - `books` — your sportsbook allowlist (must match Action Network book names: BetMGM, DraftKings, Caesars, BetRivers, FanDuel, Fanatics)
    - `sports` — which sports to scan (`nba`, `mlb`, `nhl`)
    - `ev_threshold` — minimum EV% to surface (default 0.02 = +2%)
 
@@ -81,6 +81,6 @@ npm test
 - Single user, local-only. No accounts, no server, no cloud.
 - The user is in Ontario, Canada. US Action Network lines are treated as a
   proxy for Ontario lines for BetMGM/DraftKings/Caesars/BetRivers.
-- bet365 lines come from The Odds API's `eu` region.
+- bet365 has no automated feed in v1; tracked under `manual_books` alongside theScore Bet. Re-add it later if you upgrade to a paid Odds API tier.
 - theScore Bet has no usable feed; tracked in `manual_books` only.
 - Pinnacle is used as the sharp anchor; never as a book to bet at.

@@ -46,10 +46,6 @@ const pinnacle: OddsApiGameData[] = [
     totalLine: 224.5,
     over: -108,
     under: -112,
-    bet365MlHome: -125,
-    bet365MlAway: 105,
-    bet365Over: -110,
-    bet365Under: -110,
   },
 ]
 
@@ -64,7 +60,6 @@ describe('joinSources', () => {
     expect(game.sharp.away).toBe(112)
     expect(game.bookPrices.BetMGM).toEqual({ home: -120, away: 110 })
     expect(game.bookPrices.DraftKings).toEqual({ home: -118, away: 108 })
-    expect(game.bookPrices.bet365).toEqual({ home: -125, away: 105 })
   })
 
   it('produces total snapshots with line + over/under', () => {

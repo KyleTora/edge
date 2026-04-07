@@ -1,6 +1,6 @@
 {
-  "books": ["betmgm", "draftkings", "bet365", "caesars", "betrivers"],
-  "manual_books": ["thescore"],
+  "books": ["betmgm", "draftkings", "caesars", "betrivers"],
+  "manual_books": ["thescore", "bet365"],
   "sharp_anchor": "pinnacle",
   "ev_threshold": 0.02,
   "max_sharp_implied_prob": 0.75,
