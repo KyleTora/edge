@@ -177,3 +177,62 @@ export async function listPicksAwaitingClose(
   const captured = new Set((linesRes.data ?? []).map((r: { pick_id: string }) => r.pick_id))
   return picks.filter((p) => !captured.has(p.id))
 }
+
+export interface GradedPickRow extends PickRow {
+  outcome: 'won' | 'lost' | 'push' | 'void'
+  graded_at: string
+}
+
+/**
+ * Picks whose game_date falls in [startDate, endDate] AND which have a grade row.
+ * Returns a flat shape (pick fields + outcome + graded_at). The volumes are tiny,
+ * so we fetch picks and grades separately and join in memory.
+ */
+export async function getPicksWithGradesInRange(
+  supabase: EdgeSupabase,
+  startDate: string,
+  endDate: string
+): Promise<GradedPickRow[]> {
+  const picksRes = await supabase
+    .from('edge_picks')
+    .select('*')
+    .gte('game_date', startDate)
+    .lte('game_date', endDate)
+  if (picksRes.error) throw new Error(`getPicksWithGradesInRange.picks: ${picksRes.error.message}`)
+  const picks = (picksRes.data ?? []) as PickRow[]
+  if (picks.length === 0) return []
+
+  const gradesRes = await supabase
+    .from('edge_pick_grades')
+    .select('*')
+    .in(
+      'pick_id',
+      picks.map((p) => p.id)
+    )
+  if (gradesRes.error) throw new Error(`getPicksWithGradesInRange.grades: ${gradesRes.error.message}`)
+  const grades = new Map(
+    ((gradesRes.data ?? []) as PickGradeRow[]).map((g) => [g.pick_id, g])
+  )
+
+  const result: GradedPickRow[] = []
+  for (const p of picks) {
+    const g = grades.get(p.id)
+    if (!g) continue
+    result.push({ ...p, outcome: g.outcome, graded_at: g.graded_at })
+  }
+  return result
+}
+
+export async function getClosingLinesForPicks(
+  supabase: EdgeSupabase,
+  pickIds: string[]
+): Promise<Map<string, ClosingLineRow>> {
+  if (pickIds.length === 0) return new Map()
+  const res = await supabase.from('edge_closing_lines').select('*').in('pick_id', pickIds)
+  if (res.error) throw new Error(`getClosingLinesForPicks: ${res.error.message}`)
+  const map = new Map<string, ClosingLineRow>()
+  for (const row of (res.data ?? []) as ClosingLineRow[]) {
+    map.set(row.pick_id, row)
+  }
+  return map
+}

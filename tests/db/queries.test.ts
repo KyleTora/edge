@@ -189,3 +189,45 @@ describe('close-related queries', () => {
     expect(result.map((p) => p.id).sort()).toEqual(['a'])
   })
 })
+
+import {
+  getPicksWithGradesInRange,
+  getClosingLinesForPicks,
+  type GradedPickRow,
+} from '../../src/db/queries.js'
+
+describe('record-related queries', () => {
+  let fake: FakeSupabase
+
+  beforeEach(() => {
+    fake = createFakeSupabase()
+  })
+
+  it('getPicksWithGradesInRange returns picks joined to grades within window', async () => {
+    await upsertPick(fake as never, makePick({ id: 'a', game_date: '2026-04-05' }))
+    await upsertPick(fake as never, makePick({ id: 'b', game_date: '2026-04-07' }))
+    await upsertPick(fake as never, makePick({ id: 'c', game_date: '2026-03-30' }))
+    await insertPickGrade(fake as never, { pick_id: 'a', outcome: 'won', graded_at: '2026-04-06' })
+    await insertPickGrade(fake as never, { pick_id: 'b', outcome: 'lost', graded_at: '2026-04-08' })
+
+    const result = await getPicksWithGradesInRange(fake as never, '2026-04-01', '2026-04-30')
+    const ids = result.map((r) => r.id).sort()
+    expect(ids).toEqual(['a', 'b'])
+    const a = result.find((r) => r.id === 'a')!
+    expect(a.outcome).toBe('won')
+  })
+
+  it('getClosingLinesForPicks returns map keyed by pick_id', async () => {
+    await insertClosingLine(fake as never, {
+      pick_id: 'a',
+      closed_at: '2026-04-06T01:00:00Z',
+      sharp_close: -110,
+      sharp_implied: 0.524,
+      best_book_close: -105,
+      capture_lag_min: -5,
+    })
+    const map = await getClosingLinesForPicks(fake as never, ['a', 'b'])
+    expect(map.get('a')?.sharp_close).toBe(-110)
+    expect(map.has('b')).toBe(false)
+  })
+})
