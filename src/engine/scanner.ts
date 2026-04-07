@@ -83,7 +83,7 @@ export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
           sharp_book: 'pinnacle',
           sharp_implied: trueProb,
           ev_pct: best.ev,
-          all_prices: JSON.stringify(allPrices),
+          all_prices: allPrices,
         })
       }
     } else if (snap.market === 'total') {
@@ -114,7 +114,7 @@ export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
           sharp_book: 'pinnacle',
           sharp_implied: trueProb,
           ev_pct: best.ev,
-          all_prices: JSON.stringify(allPrices),
+          all_prices: allPrices,
         })
       }
     }

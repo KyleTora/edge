@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
-import Database from 'better-sqlite3'
-import { mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { loadConfigFromDisk, loadEnv, resolveEdgeHome } from './config.js'
-import { applySchema } from './db/schema.js'
+import { loadConfigFromDisk, loadEnv } from './config.js'
+import { createSupabase } from './db/client.js'
 import { runScan } from './commands/scan.js'
 import { runReport } from './commands/report.js'
 
@@ -18,17 +15,13 @@ program
     try {
       const config = loadConfigFromDisk()
       const env = loadEnv()
-      const dbPath = resolve(resolveEdgeHome(), 'data/edge.db')
-      mkdirSync(dirname(dbPath), { recursive: true })
-      const db = new Database(dbPath)
-      applySchema(db)
+      const supabase = createSupabase(env)
       await runScan({
-        db,
+        supabase,
         config,
         env,
         print: (msg) => process.stdout.write(msg + '\n'),
       })
-      db.close()
     } catch (err) {
       process.stderr.write(`error: ${(err as Error).message}\n`)
       process.exit(1)
@@ -44,6 +37,7 @@ program
     try {
       const config = loadConfigFromDisk()
       const env = loadEnv()
+      const supabase = createSupabase(env)
       const sports = opts.sports ? opts.sports.split(',').map((s) => s.trim()) : config.sports
       const now = new Date()
       const runDate = new Intl.DateTimeFormat('en-CA', {
@@ -57,6 +51,7 @@ program
         : '4pm ET'
 
       const result = await runReport({
+        supabase,
         config,
         env,
         sports,

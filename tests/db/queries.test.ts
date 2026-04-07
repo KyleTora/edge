@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import Database from 'better-sqlite3'
-import { applySchema } from '../../src/db/schema.js'
-import { insertPick, listPicksForDate, type PickRow } from '../../src/db/queries.js'
+import { upsertPick, listPicksForDate, type PickRow } from '../../src/db/queries.js'
+import { createFakeSupabase, type FakeSupabase } from '../helpers/fake-supabase.js'
 
 function makePick(overrides: Partial<PickRow> = {}): PickRow {
   return {
@@ -21,39 +20,38 @@ function makePick(overrides: Partial<PickRow> = {}): PickRow {
     sharp_book: 'pinnacle',
     sharp_implied: 0.5557,
     ev_pct: 0.05,
-    all_prices: JSON.stringify({ bet365: -108, betmgm: -120 }),
+    all_prices: { bet365: -108, betmgm: -120 },
     ...overrides,
   }
 }
 
-describe('queries', () => {
-  let db: Database.Database
+describe('queries (Supabase)', () => {
+  let fake: FakeSupabase
 
   beforeEach(() => {
-    db = new Database(':memory:')
-    applySchema(db)
+    fake = createFakeSupabase()
   })
 
-  it('inserts a pick', () => {
-    const inserted = insertPick(db, makePick())
-    expect(inserted).toBe(true)
+  it('upserts a pick and returns true on first insert', async () => {
+    const ins = await upsertPick(fake as never, makePick())
+    expect(ins).toBe(true)
+    expect(fake._tables.edge_picks).toHaveLength(1)
   })
 
-  it('returns false when pick id already exists (ON CONFLICT DO NOTHING)', () => {
+  it('returns false on duplicate id (idempotent re-detection)', async () => {
     const pick = makePick()
-    insertPick(db, pick)
-    const second = insertPick(db, { ...pick, ev_pct: 0.99 })
+    await upsertPick(fake as never, pick)
+    const second = await upsertPick(fake as never, { ...pick, ev_pct: 0.99 })
     expect(second).toBe(false)
-    const rows = listPicksForDate(db, '2026-04-06')
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.ev_pct).toBe(0.05) // original value preserved
+    expect(fake._tables.edge_picks).toHaveLength(1)
+    expect(fake._tables.edge_picks![0]!.ev_pct).toBe(0.05)
   })
 
-  it('lists picks for a date ordered by ev_pct desc', () => {
-    insertPick(db, makePick({ id: 'a', ev_pct: 0.02 }))
-    insertPick(db, makePick({ id: 'b', ev_pct: 0.05 }))
-    insertPick(db, makePick({ id: 'c', ev_pct: 0.03 }))
-    const rows = listPicksForDate(db, '2026-04-06')
+  it('listPicksForDate orders by ev_pct desc', async () => {
+    await upsertPick(fake as never, makePick({ id: 'a', ev_pct: 0.02 }))
+    await upsertPick(fake as never, makePick({ id: 'b', ev_pct: 0.05 }))
+    await upsertPick(fake as never, makePick({ id: 'c', ev_pct: 0.03 }))
+    const rows = await listPicksForDate(fake as never, '2026-04-06')
     expect(rows.map((r) => r.id)).toEqual(['b', 'c', 'a'])
   })
 })

@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3'
+import type { EdgeSupabase } from './client.js'
 
 export interface PickRow {
   id: string
@@ -17,33 +17,37 @@ export interface PickRow {
   sharp_book: string
   sharp_implied: number
   ev_pct: number
-  all_prices: string // JSON
+  all_prices: Record<string, number>
 }
 
-const INSERT_SQL = `
-  INSERT INTO picks (
-    id, detected_at, sport, game_id, game_date, game_time,
-    away_team, home_team, market, side, line,
-    best_book, best_price, sharp_book, sharp_implied, ev_pct, all_prices
-  ) VALUES (
-    @id, @detected_at, @sport, @game_id, @game_date, @game_time,
-    @away_team, @home_team, @market, @side, @line,
-    @best_book, @best_price, @sharp_book, @sharp_implied, @ev_pct, @all_prices
-  )
-  ON CONFLICT(id) DO NOTHING
-`
+/**
+ * Insert a pick if its id does not already exist. Returns true on insert,
+ * false if the row already existed (idempotent re-detection).
+ */
+export async function upsertPick(supabase: EdgeSupabase, pick: PickRow): Promise<boolean> {
+  // Check existence first so we can report whether this was a new insert.
+  const existing = await supabase.from('edge_picks').select('id').eq('id', pick.id).limit(1)
+  if (existing.error) throw new Error(`upsertPick.select error: ${existing.error.message}`)
+  if (existing.data && existing.data.length > 0) return false
 
-export function insertPick(db: Database.Database, pick: PickRow): boolean {
-  const result = db.prepare(INSERT_SQL).run(pick)
-  return result.changes === 1
+  const ins = await supabase.from('edge_picks').insert(pick)
+  if (ins.error) {
+    // Race: another process inserted between our select and insert. Treat as duplicate.
+    if (ins.error.code === '23505') return false
+    throw new Error(`upsertPick.insert error: ${ins.error.message}`)
+  }
+  return true
 }
 
-const LIST_BY_DATE_SQL = `
-  SELECT * FROM picks
-  WHERE game_date = ?
-  ORDER BY ev_pct DESC
-`
-
-export function listPicksForDate(db: Database.Database, gameDate: string): PickRow[] {
-  return db.prepare(LIST_BY_DATE_SQL).all(gameDate) as PickRow[]
+export async function listPicksForDate(
+  supabase: EdgeSupabase,
+  gameDate: string
+): Promise<PickRow[]> {
+  const res = await supabase
+    .from('edge_picks')
+    .select('*')
+    .eq('game_date', gameDate)
+    .order('ev_pct', { ascending: false })
+  if (res.error) throw new Error(`listPicksForDate error: ${res.error.message}`)
+  return (res.data ?? []) as PickRow[]
 }

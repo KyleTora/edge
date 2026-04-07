@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { runReport } from '../../src/commands/report.js'
 import type { Config } from '../../src/config.js'
 import { resetQuotaState, recordQuotaResponse } from '../../src/quota.js'
+import { createFakeSupabase } from '../helpers/fake-supabase.js'
 
 const config: Config = {
   books: ['BetMGM', 'DraftKings', 'Caesars', 'BetRivers'],
@@ -92,7 +93,9 @@ describe('runReport', () => {
   })
 
   it('returns rendered email payload in dry-run mode', async () => {
+    const fake = createFakeSupabase()
     const result = await runReport({
+      supabase: fake as never,
       config,
       env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['nba'],
@@ -108,7 +111,9 @@ describe('runReport', () => {
   })
 
   it('respects the sports filter (overrides config.sports)', async () => {
+    const fake = createFakeSupabase()
     const result = await runReport({
+      supabase: fake as never,
       config,
       env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['mlb'],
@@ -120,8 +125,10 @@ describe('runReport', () => {
   })
 
   it('produces a quiet-day email when no picks found', async () => {
+    const fake = createFakeSupabase()
     const tightConfig = { ...config, ev_threshold: 0.99 }
     const result = await runReport({
+      supabase: fake as never,
       config: tightConfig,
       env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['nba'],
@@ -131,5 +138,21 @@ describe('runReport', () => {
     })
     expect(result.picks).toHaveLength(0)
     expect(result.email.subject).toContain('quiet day')
+  })
+
+  it('persists picks to edge_picks during a run', async () => {
+    const fake = createFakeSupabase()
+    const result = await runReport({
+      supabase: fake as never,
+      config,
+      env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
+      sports: ['nba'],
+      runLabel: 'test',
+      runDate: '2026-04-07',
+      dryRun: true,
+    })
+    expect(result.picks.length).toBeGreaterThan(0)
+    const persisted = fake._tables.edge_picks ?? []
+    expect(persisted.length).toBe(result.picks.length)
   })
 })

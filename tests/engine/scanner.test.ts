@@ -81,12 +81,11 @@ describe('scan', () => {
     expect(denPick.id).toBe('2026-04-07:nba:12345:moneyline:home')
   })
 
-  it('serializes all_prices as JSON', () => {
+  it('exposes all_prices as object', () => {
     const picks = scan({ snapshots: [snap], config: baseConfig, detectedAt })
     const denPick = picks.find((p) => p.side === 'home')!
-    const parsed = JSON.parse(denPick.all_prices)
-    expect(parsed.bet365).toBe(-108)
-    expect(parsed.BetMGM).toBe(-120)
+    expect(denPick.all_prices.bet365).toBe(-108)
+    expect(denPick.all_prices.BetMGM).toBe(-120)
   })
 
   it('handles totals market correctly', () => {
