@@ -105,4 +105,28 @@ program
     }
   })
 
+program
+  .command('record')
+  .description('Print paper-trade dashboard (P&L, hit rate, CLV)')
+  .option('--since <date>', 'YYYY-MM-DD start of window')
+  .option('--until <date>', 'YYYY-MM-DD end of window (default: today)')
+  .option('--sport <key>', 'filter to one sport')
+  .action(async (opts: { since?: string; until?: string; sport?: string }) => {
+    try {
+      const env = loadEnv()
+      const supabase = createSupabase(env)
+      const { runRecord } = await import('./commands/record.js')
+      await runRecord({
+        supabase,
+        since: opts.since,
+        until: opts.until,
+        sport: opts.sport,
+        print: (msg) => process.stdout.write(msg + '\n'),
+      })
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`)
+      process.exit(1)
+    }
+  })
+
 program.parseAsync(process.argv)
