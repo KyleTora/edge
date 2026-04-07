@@ -1,6 +1,7 @@
 import { z } from 'zod'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { config as loadDotenv } from 'dotenv'
 
 export const ConfigSchema = z.object({
@@ -30,7 +31,14 @@ export interface Env {
 }
 
 export function loadEnv(): Env {
-  loadDotenv()
+  // Look for .env in the edge installation directory first (so the binary
+  // works from any cwd), then fall back to dotenv's default cwd lookup.
+  const dotenvPath = resolve(resolveEdgeHome(), '.env')
+  if (existsSync(dotenvPath)) {
+    loadDotenv({ path: dotenvPath })
+  } else {
+    loadDotenv()
+  }
   const oddsKey = process.env.ODDS_API_KEY
   if (!oddsKey) throw new Error('ODDS_API_KEY missing from .env')
   const supabaseUrl = process.env.SUPABASE_URL
@@ -44,8 +52,28 @@ export function loadEnv(): Env {
   }
 }
 
+/**
+ * The edge installation root — directory containing package.json, .env, and
+ * edge.config.json. Resolution order:
+ *   1. EDGE_HOME env var (used by GitHub Actions to point at $GITHUB_WORKSPACE)
+ *   2. Walk up from this module's location to find package.json. Works whether
+ *      the binary runs from src/ via tsx or from dist/src/ after `npm run build`.
+ *   3. Fall back to process.cwd() (legacy behavior).
+ */
 export function resolveEdgeHome(): string {
-  return process.env.EDGE_HOME ?? process.cwd()
+  if (process.env.EDGE_HOME) return process.env.EDGE_HOME
+  try {
+    let dir = dirname(fileURLToPath(import.meta.url))
+    for (let i = 0; i < 5; i++) {
+      if (existsSync(resolve(dir, 'package.json'))) return dir
+      const parent = dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+  } catch {
+    // import.meta.url unavailable in some environments — fall through
+  }
+  return process.cwd()
 }
 
 export function loadConfigFromDisk(path = 'edge.config.json'): Config {
