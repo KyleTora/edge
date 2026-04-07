@@ -4,7 +4,7 @@ import {
   type MarketSnapshot,
 } from '../../src/sources/normalize.js'
 import type { ActionNetworkOdds } from '../../src/sources/action-network.js'
-import type { PinnacleGame } from '../../src/sources/odds-api.js'
+import type { OddsApiGameData } from '../../src/sources/odds-api.js'
 
 const an: ActionNetworkOdds[] = [
   {
@@ -35,7 +35,7 @@ const an: ActionNetworkOdds[] = [
   },
 ]
 
-const pinnacle: PinnacleGame[] = [
+const pinnacle: OddsApiGameData[] = [
   {
     oddsApiId: 'abc123',
     startTime: '2026-04-07T01:30:00Z',
@@ -46,6 +46,10 @@ const pinnacle: PinnacleGame[] = [
     totalLine: 224.5,
     over: -108,
     under: -112,
+    bet365MlHome: -125,
+    bet365MlAway: 105,
+    bet365Over: -110,
+    bet365Under: -110,
   },
 ]
 
@@ -60,6 +64,7 @@ describe('joinSources', () => {
     expect(game.sharp.away).toBe(112)
     expect(game.bookPrices.BetMGM).toEqual({ home: -120, away: 110 })
     expect(game.bookPrices.DraftKings).toEqual({ home: -118, away: 108 })
+    expect(game.bookPrices.bet365).toEqual({ home: -125, away: 105 })
   })
 
   it('produces total snapshots with line + over/under', () => {
@@ -79,7 +84,7 @@ describe('joinSources', () => {
   })
 
   it('matches by team names case-insensitively', () => {
-    const altPinnacle: PinnacleGame[] = [
+    const altPinnacle: OddsApiGameData[] = [
       { ...pinnacle[0]!, homeTeam: 'denver nuggets', awayTeam: 'LOS ANGELES LAKERS' },
     ]
     const snapshots = joinSources({ sport: 'nba', actionNetwork: an, pinnacle: altPinnacle })

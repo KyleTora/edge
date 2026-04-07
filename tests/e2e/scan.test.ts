@@ -86,6 +86,26 @@ const ODDS_API_RESPONSE = [
           },
         ],
       },
+      {
+        key: 'bet365',
+        title: 'bet365',
+        markets: [
+          {
+            key: 'h2h',
+            outcomes: [
+              { name: 'Denver Nuggets', price: -190 },
+              { name: 'Los Angeles Lakers', price: 160 },
+            ],
+          },
+          {
+            key: 'totals',
+            outcomes: [
+              { name: 'Over', price: -110, point: 224.5 },
+              { name: 'Under', price: -110, point: 224.5 },
+            ],
+          },
+        ],
+      },
     ],
   },
 ]

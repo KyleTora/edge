@@ -67,6 +67,9 @@ export function joinSources({
           bookPrices[b.bookName] = { home: b.mlHome, away: b.mlAway }
         }
       }
+      if (sharp.bet365MlHome !== null && sharp.bet365MlAway !== null) {
+        bookPrices['bet365'] = { home: sharp.bet365MlHome, away: sharp.bet365MlAway }
+      }
       out.push({
         market: 'moneyline',
         sport,
@@ -87,6 +90,9 @@ export function joinSources({
         if (b.over !== null && b.under !== null && b.total === sharp.totalLine) {
           bookPrices[b.bookName] = { over: b.over, under: b.under }
         }
+      }
+      if (sharp.bet365Over !== null && sharp.bet365Under !== null) {
+        bookPrices['bet365'] = { over: sharp.bet365Over, under: sharp.bet365Under }
       }
       out.push({
         market: 'total',
