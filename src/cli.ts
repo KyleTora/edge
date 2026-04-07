@@ -76,4 +76,33 @@ program
     }
   })
 
+program
+  .command('resolve')
+  .description('Capture closing lines and/or grade finished picks')
+  .option('--close', 'capture closing lines for picks whose games are starting')
+  .option('--grade', 'grade picks whose games have finished')
+  .action(async (opts: { close?: boolean; grade?: boolean }) => {
+    try {
+      const config = loadConfigFromDisk()
+      const env = loadEnv()
+      const supabase = createSupabase(env)
+      const mode: 'close' | 'grade' | 'both' = opts.close && !opts.grade
+        ? 'close'
+        : opts.grade && !opts.close
+        ? 'grade'
+        : 'both'
+      const { runResolve } = await import('./commands/resolve.js')
+      await runResolve({
+        supabase,
+        config,
+        env,
+        mode,
+        print: (msg) => process.stdout.write(msg + '\n'),
+      })
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`)
+      process.exit(1)
+    }
+  })
+
 program.parseAsync(process.argv)
