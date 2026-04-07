@@ -51,3 +51,76 @@ export async function listPicksForDate(
   if (res.error) throw new Error(`listPicksForDate error: ${res.error.message}`)
   return (res.data ?? []) as PickRow[]
 }
+
+export interface ResultRow {
+  game_id: string
+  sport: string
+  game_date: string
+  home_score: number
+  away_score: number
+  status: 'final' | 'postponed' | 'canceled'
+  resolved_at: string
+}
+
+export interface PickGradeRow {
+  pick_id: string
+  outcome: 'won' | 'lost' | 'push' | 'void'
+  graded_at: string
+}
+
+export async function upsertResult(supabase: EdgeSupabase, row: ResultRow): Promise<void> {
+  const res = await supabase.from('edge_results').upsert(row, { onConflict: 'game_id' })
+  if (res.error) throw new Error(`upsertResult error: ${res.error.message}`)
+}
+
+export async function insertPickGrade(supabase: EdgeSupabase, row: PickGradeRow): Promise<void> {
+  const res = await supabase.from('edge_pick_grades').upsert(row, { onConflict: 'pick_id' })
+  if (res.error) throw new Error(`insertPickGrade error: ${res.error.message}`)
+}
+
+export async function getResultByGameId(
+  supabase: EdgeSupabase,
+  gameId: string
+): Promise<ResultRow | null> {
+  const res = await supabase.from('edge_results').select('*').eq('game_id', gameId).limit(1)
+  if (res.error) throw new Error(`getResultByGameId error: ${res.error.message}`)
+  return (res.data?.[0] as ResultRow | undefined) ?? null
+}
+
+/**
+ * Picks whose game_date is within `lookbackDays` of `referenceDate` (YYYY-MM-DD)
+ * and which have NO row in edge_pick_grades. Implementation: pull picks in date
+ * range, pull all grades for those picks, filter in memory. The volumes are tiny
+ * (<500 picks/day) so this is fine and avoids the foot-gun of trying to express
+ * a NOT EXISTS via the Supabase query builder.
+ */
+export async function listPicksAwaitingGrade(
+  supabase: EdgeSupabase,
+  referenceDate: string,
+  lookbackDays: number
+): Promise<PickRow[]> {
+  const ref = new Date(referenceDate + 'T00:00:00Z')
+  const start = new Date(ref)
+  start.setUTCDate(start.getUTCDate() - lookbackDays)
+  const startStr = start.toISOString().slice(0, 10)
+
+  const picksRes = await supabase
+    .from('edge_picks')
+    .select('*')
+    .gte('game_date', startStr)
+    .lte('game_date', referenceDate)
+  if (picksRes.error) throw new Error(`listPicksAwaitingGrade.picks error: ${picksRes.error.message}`)
+  const picks = (picksRes.data ?? []) as PickRow[]
+  if (picks.length === 0) return []
+
+  const gradesRes = await supabase
+    .from('edge_pick_grades')
+    .select('pick_id')
+    .in(
+      'pick_id',
+      picks.map((p) => p.id)
+    )
+  if (gradesRes.error) throw new Error(`listPicksAwaitingGrade.grades error: ${gradesRes.error.message}`)
+  const graded = new Set((gradesRes.data ?? []).map((g: { pick_id: string }) => g.pick_id))
+  return picks.filter((p) => !graded.has(p.id))
+}

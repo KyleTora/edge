@@ -55,3 +55,89 @@ describe('queries (Supabase)', () => {
     expect(rows.map((r) => r.id)).toEqual(['b', 'c', 'a'])
   })
 })
+
+import {
+  listPicksAwaitingGrade,
+  upsertResult,
+  insertPickGrade,
+  getResultByGameId,
+  type ResultRow,
+  type PickGradeRow,
+} from '../../src/db/queries.js'
+
+describe('grade-related queries', () => {
+  let fake: FakeSupabase
+
+  beforeEach(() => {
+    fake = createFakeSupabase()
+  })
+
+  it('upsertResult inserts a new game result', async () => {
+    const r: ResultRow = {
+      game_id: 'lal-den',
+      sport: 'nba',
+      game_date: '2026-04-07',
+      home_score: 110,
+      away_score: 105,
+      status: 'final',
+      resolved_at: '2026-04-08T05:00:00Z',
+    }
+    await upsertResult(fake as never, r)
+    expect(fake._tables.edge_results).toHaveLength(1)
+    expect(fake._tables.edge_results![0]).toMatchObject(r)
+  })
+
+  it('upsertResult overwrites a postponed-then-final progression', async () => {
+    const game_id = 'nyy-bos'
+    await upsertResult(fake as never, {
+      game_id,
+      sport: 'mlb',
+      game_date: '2026-04-07',
+      home_score: 0,
+      away_score: 0,
+      status: 'postponed',
+      resolved_at: '2026-04-07T22:00:00Z',
+    })
+    await upsertResult(fake as never, {
+      game_id,
+      sport: 'mlb',
+      game_date: '2026-04-08',
+      home_score: 5,
+      away_score: 3,
+      status: 'final',
+      resolved_at: '2026-04-09T05:00:00Z',
+    })
+    expect(fake._tables.edge_results).toHaveLength(1)
+    expect(fake._tables.edge_results![0]!.status).toBe('final')
+    expect(fake._tables.edge_results![0]!.home_score).toBe(5)
+  })
+
+  it('insertPickGrade writes a row', async () => {
+    const g: PickGradeRow = {
+      pick_id: '2026-04-07:nba:lal-den:moneyline:home',
+      outcome: 'won',
+      graded_at: '2026-04-08T05:00:00Z',
+    }
+    await insertPickGrade(fake as never, g)
+    expect(fake._tables.edge_pick_grades).toEqual([g])
+  })
+
+  it('listPicksAwaitingGrade returns picks with no grade row in lookback window', async () => {
+    // pick A: in window, ungraded → should be returned
+    await upsertPick(fake as never, makePick({ id: 'a', game_date: '2026-04-06' }))
+    // pick B: in window, already graded → should be excluded
+    await upsertPick(fake as never, makePick({ id: 'b', game_date: '2026-04-06' }))
+    await insertPickGrade(fake as never, { pick_id: 'b', outcome: 'won', graded_at: '2026-04-07T00:00:00Z' })
+    // pick C: out of window → should be excluded
+    await upsertPick(fake as never, makePick({ id: 'c', game_date: '2026-03-01' }))
+
+    const result = await listPicksAwaitingGrade(fake as never, '2026-04-08', 3)
+    const ids = result.map((p) => p.id).sort()
+    expect(ids).toEqual(['a'])
+  })
+
+  it('getResultByGameId returns null when missing', async () => {
+    const r = await getResultByGameId(fake as never, 'unknown')
+    expect(r).toBeNull()
+  })
+})
