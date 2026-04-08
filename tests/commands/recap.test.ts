@@ -82,7 +82,7 @@ describe('runRecap', () => {
     expect(result.sent).toBe(true)
     expect(result.settledCount).toBe(1)
     expect(send).toHaveBeenCalledTimes(1)
-    const payload = send.mock.calls[0]![0] as { subject: string; html: string; csvFilename?: string }
+    const payload = (send.mock.calls as unknown as unknown[][])[0]![0] as { subject: string; html: string; csvFilename?: string }
     expect(payload.subject).toContain('Edge recap')
     expect(payload.subject).toContain('1 pick settled')
     expect(payload.csvFilename).toBeUndefined() // no CSV attachment
@@ -135,7 +135,7 @@ describe('runRecap', () => {
       emailTo: 'me@example.com',
     })
     expect(result.sent).toBe(true)
-    const payload = send.mock.calls[0]![0] as { subject: string }
+    const payload = (send.mock.calls as unknown as unknown[][])[0]![0] as { subject: string }
     // -145 won → +0.69u
     expect(payload.subject).toBe('Edge recap — 1 pick settled, +0.69u (7d)')
   })
