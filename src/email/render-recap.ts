@@ -28,7 +28,7 @@ function ratio(n: number | null): string {
 }
 
 function units(n: number): string {
-  const sign = n >= 0 ? '+' : ''
+  const sign = n > 0 ? '+' : ''
   return `${sign}${n.toFixed(2)}u`
 }
 

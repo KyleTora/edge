@@ -184,6 +184,7 @@ describe('renderRecapHtml', () => {
     expect(html).toContain('Leafs -1.5')
     expect(html).toContain('Push')
     expect(html).toContain('0.00u')
+    expect(html).not.toContain('+0.00u')
   })
 
   it('sorts settled picks by graded_at descending', () => {
@@ -216,6 +217,20 @@ describe('renderRecapHtml', () => {
     expect(html).toContain('09:30')
     expect(html).toContain('2 settled')
     expect(html).toContain('612 graded all-time')
+  })
+
+  it('omits the settled-overnight block when newlySettled is empty', () => {
+    const html = renderRecapHtml({
+      newlySettled: [],
+      metrics7d: populatedMetrics(),
+      metrics30d: populatedMetrics(),
+      metricsAll: populatedMetrics(),
+      asOf: new Date('2026-04-08T09:30:00Z'),
+    })
+    expect(html).not.toContain('Settled overnight')
+    // Headline table should still be present
+    expect(html).toContain('Rolling totals')
+    expect(html).toContain('+2.84u')
   })
 })
 
