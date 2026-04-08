@@ -231,3 +231,46 @@ describe('record-related queries', () => {
     expect(map.has('b')).toBe(false)
   })
 })
+
+import { getPicksGradedSince } from '../../src/db/queries.js'
+
+describe('getPicksGradedSince', () => {
+  let fake: FakeSupabase
+
+  beforeEach(() => {
+    fake = createFakeSupabase()
+  })
+
+  it('returns picks whose graded_at is at or after the cutoff', async () => {
+    await upsertPick(fake as never, makePick({ id: 'old' }))
+    await upsertPick(fake as never, makePick({ id: 'new' }))
+    await insertPickGrade(fake as never, {
+      pick_id: 'old',
+      outcome: 'won',
+      graded_at: '2026-04-07T08:00:00Z',
+    })
+    await insertPickGrade(fake as never, {
+      pick_id: 'new',
+      outcome: 'lost',
+      graded_at: '2026-04-08T08:00:00Z',
+    })
+    const result = await getPicksGradedSince(fake as never, '2026-04-08T00:00:00Z')
+    expect(result.map((p) => p.id).sort()).toEqual(['new'])
+    expect(result[0]?.outcome).toBe('lost')
+  })
+
+  it('returns an empty array when nothing has been graded since cutoff', async () => {
+    const result = await getPicksGradedSince(fake as never, '2026-04-08T00:00:00Z')
+    expect(result).toEqual([])
+  })
+
+  it('skips orphan grade rows whose pick row no longer exists', async () => {
+    await insertPickGrade(fake as never, {
+      pick_id: 'orphan',
+      outcome: 'won',
+      graded_at: '2026-04-08T08:00:00Z',
+    })
+    const result = await getPicksGradedSince(fake as never, '2026-04-08T00:00:00Z')
+    expect(result).toEqual([])
+  })
+})

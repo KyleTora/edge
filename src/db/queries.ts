@@ -223,6 +223,43 @@ export async function getPicksWithGradesInRange(
   return result
 }
 
+/**
+ * Picks whose grade row has graded_at >= sinceIso. Joins to edge_picks in
+ * memory using the same anti-join pattern as listPicksAwaitingGrade. Orphan
+ * grade rows (no matching pick) are silently dropped — they should not exist
+ * but we don't want one bad row to take down the recap email.
+ */
+export async function getPicksGradedSince(
+  supabase: EdgeSupabase,
+  sinceIso: string
+): Promise<GradedPickRow[]> {
+  const gradesRes = await supabase
+    .from('edge_pick_grades')
+    .select('*')
+    .gte('graded_at', sinceIso)
+  if (gradesRes.error) throw new Error(`getPicksGradedSince.grades: ${gradesRes.error.message}`)
+  const grades = (gradesRes.data ?? []) as PickGradeRow[]
+  if (grades.length === 0) return []
+
+  const picksRes = await supabase
+    .from('edge_picks')
+    .select('*')
+    .in(
+      'id',
+      grades.map((g) => g.pick_id)
+    )
+  if (picksRes.error) throw new Error(`getPicksGradedSince.picks: ${picksRes.error.message}`)
+  const pickById = new Map(((picksRes.data ?? []) as PickRow[]).map((p) => [p.id, p]))
+
+  const result: GradedPickRow[] = []
+  for (const g of grades) {
+    const p = pickById.get(g.pick_id)
+    if (!p) continue
+    result.push({ ...p, outcome: g.outcome, graded_at: g.graded_at })
+  }
+  return result
+}
+
 export async function getClosingLinesForPicks(
   supabase: EdgeSupabase,
   pickIds: string[]

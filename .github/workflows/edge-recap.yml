@@ -1,0 +1,36 @@
+name: edge recap
+
+on:
+  schedule:
+    # 09:30 UTC = 30 min after edge-resolve-grade (09:00 UTC).
+    # Buffer lets the grade job finish writing edge_pick_grades rows
+    # before we read them for the recap email.
+    - cron: '30 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  recap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run edge recap
+        run: npx tsx src/cli.ts recap
+        env:
+          # ODDS_API_KEY: not needed by `recap`, but loadEnv() requires it
+          # eagerly. Passed defensively to match the close/grade workflows.
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
+          REPORT_EMAIL_FROM: ${{ secrets.REPORT_EMAIL_FROM }}
+          EDGE_HOME: ${{ github.workspace }}

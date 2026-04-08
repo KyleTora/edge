@@ -129,4 +129,39 @@ program
     }
   })
 
+program
+  .command('recap')
+  .description('Email a recap of recently settled picks and rolling 7d/30d/all-time totals')
+  .action(async () => {
+    try {
+      const env = loadEnv()
+      const supabase = createSupabase(env)
+      const resendApiKey = process.env.RESEND_API_KEY
+      const emailTo = process.env.REPORT_EMAIL_TO
+      const emailFrom = process.env.REPORT_EMAIL_FROM
+      if (!resendApiKey || !emailTo || !emailFrom) {
+        throw new Error(
+          'RESEND_API_KEY, REPORT_EMAIL_TO, and REPORT_EMAIL_FROM are required for `edge recap`'
+        )
+      }
+      const { runRecap } = await import('./commands/recap.js')
+      const result = await runRecap({
+        supabase,
+        resendApiKey,
+        emailFrom,
+        emailTo,
+      })
+      if (result.sent) {
+        process.stdout.write(
+          `Sent recap (${result.settledCount} settled, ${result.metrics7d.units >= 0 ? '+' : ''}${result.metrics7d.units.toFixed(2)}u 7d). Resend id: ${result.resendId}\n`
+        )
+      } else {
+        process.stdout.write(`recap: ${result.reason}, skipping email\n`)
+      }
+    } catch (err) {
+      process.stderr.write(`error: ${(err as Error).message}\n`)
+      process.exit(1)
+    }
+  })
+
 program.parseAsync(process.argv)
