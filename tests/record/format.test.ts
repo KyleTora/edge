@@ -18,8 +18,8 @@ const metrics: RecordMetrics = {
   capturedClosesPct: 1,
   approximateCLV: 3,
   bySport: [
-    { sport: 'nba', picks: 18, won: 13, lost: 4, push: 1, units: 4.2, clvAvg: 0.051 },
-    { sport: 'mlb', picks: 14, won: 7, lost: 7, push: 0, units: -0.8, clvAvg: 0.004 },
+    { sport: 'nba', picks: 18, won: 13, lost: 4, push: 1, units: 4.2, roi: 4.2 / 18, clvAvg: 0.051 },
+    { sport: 'mlb', picks: 14, won: 7, lost: 7, push: 0, units: -0.8, roi: -0.8 / 14, clvAvg: 0.004 },
   ],
 }
 

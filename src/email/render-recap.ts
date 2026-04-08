@@ -170,7 +170,7 @@ function renderBySportTable(bySport: SportBreakdown[]): string {
     <td style="padding:6px 10px;text-align:right;">${s.picks}</td>
     <td style="padding:6px 10px;text-align:right;">${s.won}-${s.lost}-${s.push}</td>
     <td style="padding:6px 10px;text-align:right;">${units(s.units)}</td>
-    <td style="padding:6px 10px;text-align:right;">${pct(s.picks > 0 ? s.units / s.picks : null)}</td>
+    <td style="padding:6px 10px;text-align:right;">${pct(s.roi)}</td>
     <td style="padding:6px 10px;text-align:right;">${pct(s.clvAvg)}</td>
   </tr>`
     )

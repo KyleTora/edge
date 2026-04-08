@@ -112,5 +112,8 @@ describe('aggregateMetrics', () => {
     expect(nba.won).toBe(1)
     expect(mlb.picks).toBe(1)
     expect(mlb.lost).toBe(1)
+    // ROI = units / picks (1 pick each, flat stake)
+    expect(nba.roi).toBeCloseTo(100 / 110, 5) // won at -110
+    expect(mlb.roi).toBeCloseTo(-1, 5) // lost
   })
 })

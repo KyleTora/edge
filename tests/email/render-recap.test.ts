@@ -47,6 +47,7 @@ function populatedMetrics(): RecordMetrics {
         lost: 5,
         push: 1,
         units: 1.92,
+        roi: 1.92 / 14,
         clvAvg: 0.021,
       },
       {
@@ -56,6 +57,7 @@ function populatedMetrics(): RecordMetrics {
         lost: 3,
         push: 0,
         units: 0.42,
+        roi: 0.42 / 6,
         clvAvg: 0.009,
       },
     ],

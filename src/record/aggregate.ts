@@ -8,6 +8,7 @@ export interface SportBreakdown {
   lost: number
   push: number
   units: number
+  roi: number | null
   clvAvg: number | null
 }
 
@@ -95,6 +96,7 @@ export function aggregateMetrics(input: AggregateInput): RecordMetrics {
         lost: 0,
         push: 0,
         units: 0,
+        roi: null,
         clvAvg: null,
       } as SportBreakdown)
     entry.picks++
@@ -103,6 +105,10 @@ export function aggregateMetrics(input: AggregateInput): RecordMetrics {
     else if (p.outcome === 'push') entry.push++
     entry.units += unitProfit(p.outcome, p.best_price)
     bySportMap.set(p.sport, entry)
+  }
+  // Add per-sport ROI (units / picks, where picks already excludes voids)
+  for (const entry of bySportMap.values()) {
+    entry.roi = entry.picks > 0 ? entry.units / entry.picks : null
   }
   // Add per-sport CLV averages
   for (const entry of bySportMap.values()) {
