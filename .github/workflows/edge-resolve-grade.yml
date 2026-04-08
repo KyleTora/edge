@@ -22,6 +22,7 @@ jobs:
       - name: Run edge resolve --grade
         run: npx tsx src/cli.ts resolve --grade
         env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           EDGE_HOME: ${{ github.workspace }}
