@@ -18,6 +18,8 @@ export interface PickRow {
   sharp_implied: number
   ev_pct: number
   all_prices: Record<string, number>
+  score: number
+  card_date: string
 }
 
 /**
@@ -49,6 +51,19 @@ export async function listPicksForDate(
     .eq('game_date', gameDate)
     .order('ev_pct', { ascending: false })
   if (res.error) throw new Error(`listPicksForDate error: ${res.error.message}`)
+  return (res.data ?? []) as PickRow[]
+}
+
+export async function listPicksForCardDate(
+  supabase: EdgeSupabase,
+  cardDate: string
+): Promise<PickRow[]> {
+  const res = await supabase
+    .from('edge_picks')
+    .select('*')
+    .eq('card_date', cardDate)
+    .order('score', { ascending: false })
+  if (res.error) throw new Error(`listPicksForCardDate error: ${res.error.message}`)
   return (res.data ?? []) as PickRow[]
 }
 
