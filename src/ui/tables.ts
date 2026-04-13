@@ -78,3 +78,37 @@ export function renderPicksTable(picks: PickRow[]): string {
 
   return table.toString() + `\n\n${picks.length} pick${picks.length === 1 ? '' : 's'}.`
 }
+
+function fmtScore(score: number): string {
+  return score.toFixed(4)
+}
+
+export function renderCardTable(picks: PickRow[]): string {
+  if (picks.length === 0) {
+    return chalk.dim('No candidates available for today\'s card.')
+  }
+
+  const table = new Table({
+    head: ['#', 'SCORE', 'EV%', 'SPORT', 'MATCHUP', 'PICK', 'BOOK', 'PRICE', 'SHARP', 'START'],
+    style: { head: ['bold'], border: ['gray'] },
+  })
+
+  picks.forEach((p, i) => {
+    const matchup = `${abbr(p.away_team)} @ ${abbr(p.home_team)}`
+    const evLabel = fmtEv(p.ev_pct)
+    table.push([
+      chalk.bold(`${i + 1}`),
+      fmtScore(p.score),
+      colorEv(p.ev_pct, evLabel),
+      p.sport.toUpperCase(),
+      matchup,
+      pickLabel(p),
+      p.best_book,
+      fmtPrice(p.best_price),
+      `${(p.sharp_implied * 100).toFixed(1)}%`,
+      fmtTime(p.game_time),
+    ])
+  })
+
+  return table.toString() + `\n\nDaily card: ${picks.length} pick${picks.length === 1 ? '' : 's'}, 1u each.`
+}

@@ -23,6 +23,8 @@ function makePick(overrides: Record<string, unknown> = {}) {
     sharp_implied: 0.5,
     ev_pct: 0.05,
     all_prices: { bet365: -108 },
+    score: 0.0412,
+    card_date: '2026-04-06',
     ...overrides,
   }
 }

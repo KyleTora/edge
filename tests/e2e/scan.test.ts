@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { runScan } from '../../src/commands/scan.js'
+import { runCard } from '../../src/commands/card.js'
 import { createFakeSupabase, type FakeSupabase } from '../helpers/fake-supabase.js'
 import type { Config } from '../../src/config.js'
 
@@ -7,19 +7,16 @@ const config: Config = {
   books: ['BetMGM', 'DraftKings'],
   manual_books: [],
   sharp_anchor: 'pinnacle',
-  ev_threshold: 0.02,
-  max_sharp_implied_prob: 0.75,
+  daily_picks: 5,
   sports: ['nba'],
   bankroll_units: 100,
   unit_size_cad: 25,
-  watch_interval_minutes: 10,
   closing_line_capture_minutes_before_game: 5,
-  stale_sharp_max_age_minutes: 60,
 }
 
 // Pinnacle: home=-200, away=+170 → homeTrue≈0.643
-// BetMGM (68): home=-155 → EV≈+3.5% (above 2% threshold)
-// DraftKings (15): home=-170 → EV≈+1.3% (below threshold, won't be picked)
+// BetMGM (68): home=-155 → EV≈+3.5% (above threshold)
+// DraftKings (15): home=-170 → EV≈+1.3%
 const ACTION_NETWORK_RESPONSE = {
   games: [
     {
@@ -94,7 +91,7 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: 'fake',
 }
 
-describe('e2e: scan', () => {
+describe('e2e: card', () => {
   let fake: FakeSupabase
 
   beforeEach(() => {
@@ -113,8 +110,8 @@ describe('e2e: scan', () => {
     )
   })
 
-  it('inserts a +EV pick into the database', async () => {
-    await runScan({
+  it('inserts a pick into the database', async () => {
+    await runCard({
       supabase: fake as never,
       config,
       env,
@@ -127,13 +124,15 @@ describe('e2e: scan', () => {
   })
 
   it('is idempotent: running twice does not duplicate', async () => {
-    await runScan({
+    await runCard({
       supabase: fake as never,
       config,
       env,
       detectedAt: '2026-04-06T18:00:00Z',
     })
-    await runScan({
+    // Second run — picks already exist (card_date idempotency kicks in if daily_picks reached,
+    // otherwise upsertPick deduplicates by id)
+    await runCard({
       supabase: fake as never,
       config,
       env,

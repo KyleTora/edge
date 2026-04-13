@@ -2,21 +2,21 @@
 import { Command } from 'commander'
 import { loadConfigFromDisk, loadEnv } from './config.js'
 import { createSupabase } from './db/client.js'
-import { runScan } from './commands/scan.js'
+import { runCard } from './commands/card.js'
 import { runReport } from './commands/report.js'
 
 const program = new Command()
 program.name('edge').description('Personal +EV sports betting CLI').version('0.1.0')
 
 program
-  .command('scan', { isDefault: true })
-  .description('Fetch odds, devig sharp anchor, print +EV picks')
+  .command('card', { isDefault: true })
+  .description('Generate today\'s top-5 daily card across all sports')
   .action(async () => {
     try {
       const config = loadConfigFromDisk()
       const env = loadEnv()
       const supabase = createSupabase(env)
-      await runScan({
+      await runCard({
         supabase,
         config,
         env,

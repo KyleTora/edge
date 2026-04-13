@@ -7,36 +7,29 @@ describe('parseConfig', () => {
       books: ['betmgm', 'draftkings'],
       manual_books: ['thescore'],
       sharp_anchor: 'pinnacle',
-      ev_threshold: 0.02,
-      max_sharp_implied_prob: 0.75,
+      daily_picks: 5,
       sports: ['nba'],
       bankroll_units: 100,
       unit_size_cad: 25,
-      watch_interval_minutes: 10,
       closing_line_capture_minutes_before_game: 5,
-      stale_sharp_max_age_minutes: 60,
     }
     const cfg = parseConfig(raw)
     expect(cfg.books).toEqual(['betmgm', 'draftkings'])
-    expect(cfg.ev_threshold).toBe(0.02)
+    expect(cfg.daily_picks).toBe(5)
   })
 
-  it('rejects ev_threshold outside [0, 1]', () => {
-    expect(() =>
-      parseConfig({
-        books: ['betmgm'],
-        manual_books: [],
-        sharp_anchor: 'pinnacle',
-        ev_threshold: 1.5,
-        max_sharp_implied_prob: 0.75,
-        sports: ['nba'],
-        bankroll_units: 100,
-        unit_size_cad: 25,
-        watch_interval_minutes: 10,
-        closing_line_capture_minutes_before_game: 5,
-        stale_sharp_max_age_minutes: 60,
-      })
-    ).toThrow()
+  it('defaults daily_picks to 5 when not provided', () => {
+    const raw = {
+      books: ['betmgm'],
+      manual_books: [],
+      sharp_anchor: 'pinnacle',
+      sports: ['nba'],
+      bankroll_units: 100,
+      unit_size_cad: 25,
+      closing_line_capture_minutes_before_game: 5,
+    }
+    const cfg = parseConfig(raw)
+    expect(cfg.daily_picks).toBe(5)
   })
 
   it('requires at least one book', () => {
@@ -45,14 +38,11 @@ describe('parseConfig', () => {
         books: [],
         manual_books: [],
         sharp_anchor: 'pinnacle',
-        ev_threshold: 0.02,
-        max_sharp_implied_prob: 0.75,
+        daily_picks: 5,
         sports: ['nba'],
         bankroll_units: 100,
         unit_size_cad: 25,
-        watch_interval_minutes: 10,
         closing_line_capture_minutes_before_game: 5,
-        stale_sharp_max_age_minutes: 60,
       })
     ).toThrow()
   })

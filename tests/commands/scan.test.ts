@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { runScan } from '../../src/commands/scan.js'
+import { runCard } from '../../src/commands/card.js'
 import { createFakeSupabase, type FakeSupabase } from '../helpers/fake-supabase.js'
 import type { Config, Env } from '../../src/config.js'
 
@@ -18,14 +18,11 @@ const config: Config = {
   books: ['betmgm'],
   manual_books: [],
   sharp_anchor: 'pinnacle',
-  ev_threshold: 0.02,
-  max_sharp_implied_prob: 0.75,
+  daily_picks: 5,
   sports: ['nba'],
   bankroll_units: 100,
   unit_size_cad: 25,
-  watch_interval_minutes: 10,
   closing_line_capture_minutes_before_game: 5,
-  stale_sharp_max_age_minutes: 60,
 }
 const env: Env = {
   ODDS_API_KEY: 'test',
@@ -33,7 +30,7 @@ const env: Env = {
   SUPABASE_SERVICE_ROLE_KEY: 'test',
 }
 
-describe('runScan', () => {
+describe('runCard', () => {
   let fake: FakeSupabase
 
   beforeEach(() => {
@@ -41,7 +38,7 @@ describe('runScan', () => {
   })
 
   it('runs end-to-end with no picks and writes nothing to edge_picks', async () => {
-    const result = await runScan({
+    const result = await runCard({
       supabase: fake as never,
       config,
       env,

@@ -8,14 +8,11 @@ const config: Config = {
   books: ['BetMGM', 'DraftKings', 'Caesars', 'BetRivers'],
   manual_books: ['thescore', 'bet365'],
   sharp_anchor: 'pinnacle',
-  ev_threshold: 0.02,
-  max_sharp_implied_prob: 0.75,
+  daily_picks: 5,
   sports: ['nba', 'mlb', 'nhl'],
   bankroll_units: 100,
   unit_size_cad: 25,
-  watch_interval_minutes: 10,
   closing_line_capture_minutes_before_game: 5,
-  stale_sharp_max_age_minutes: 60,
 }
 
 const ACTION_NETWORK_RESPONSE = {
@@ -24,7 +21,7 @@ const ACTION_NETWORK_RESPONSE = {
       id: 12345,
       home_team_id: 1,
       away_team_id: 2,
-      start_time: '2026-04-08T01:30:00Z',
+      start_time: '2099-04-08T01:30:00Z',
       status: 'scheduled',
       teams: [
         { id: 1, full_name: 'Denver Nuggets' },
@@ -42,7 +39,7 @@ const ODDS_API_RESPONSE = [
   {
     id: 'abc123',
     sport_key: 'basketball_nba',
-    commence_time: '2026-04-08T01:30:00Z',
+    commence_time: '2099-04-08T01:30:00Z',
     home_team: 'Denver Nuggets',
     away_team: 'Los Angeles Lakers',
     bookmakers: [
@@ -124,12 +121,12 @@ describe('runReport', () => {
     expect(result.picks.every((p) => p.sport === 'mlb')).toBe(true)
   })
 
-  it('produces a quiet-day email when no picks found', async () => {
+  it('produces a quiet-day email when daily_picks is 0', async () => {
     const fake = createFakeSupabase()
-    const tightConfig = { ...config, ev_threshold: 0.99 }
+    const zeroPicksConfig = { ...config, daily_picks: 0 }
     const result = await runReport({
       supabase: fake as never,
-      config: tightConfig,
+      config: zeroPicksConfig,
       env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
       sports: ['nba'],
       runLabel: '4pm ET',

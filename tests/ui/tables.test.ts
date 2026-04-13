@@ -23,6 +23,8 @@ const pick: PickRow = {
   sharp_implied: 0.5452,
   ev_pct: 0.05,
   all_prices: {},
+  score: 0.0412,
+  card_date: '2026-04-06',
 }
 
 describe('renderPicksTable', () => {

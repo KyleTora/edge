@@ -10,14 +10,11 @@ const config: Config = {
   books: ['betmgm', 'draftkings'],
   manual_books: [],
   sharp_anchor: 'pinnacle',
-  ev_threshold: 0.02,
-  max_sharp_implied_prob: 0.75,
+  daily_picks: 5,
   sports: ['nba'],
   bankroll_units: 100,
   unit_size_cad: 25,
-  watch_interval_minutes: 10,
   closing_line_capture_minutes_before_game: 5,
-  stale_sharp_max_age_minutes: 60,
 }
 
 const env: Env = {
@@ -45,6 +42,8 @@ function makePick(overrides: Partial<PickRow> = {}): PickRow {
     sharp_implied: 0.5,
     ev_pct: 0.05,
     all_prices: { betmgm: -108 },
+    score: 0.0412,
+    card_date: '2026-04-07',
     ...overrides,
   }
 }

@@ -21,6 +21,8 @@ function pick(overrides: Partial<GradedPickRow> = {}): GradedPickRow {
     sharp_implied: 0.5,
     ev_pct: 0.03,
     all_prices: { betmgm: -110 },
+    score: 0.0275,
+    card_date: '2026-04-06',
     outcome: 'won',
     graded_at: '2026-04-08T00:00:00Z',
     ...overrides,
