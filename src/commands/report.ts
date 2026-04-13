@@ -11,7 +11,7 @@ import {
   fetchPinnacleNhl,
 } from '../sources/odds-api.js'
 import { joinSources } from '../sources/normalize.js'
-import { scan } from '../engine/scanner.js'
+import { rankCandidates } from '../engine/scanner.js'
 import { upsertPick, type PickRow } from '../db/queries.js'
 import { renderEmail, type RenderedEmail } from '../email/render.js'
 import { sendReportEmail } from '../email/send.js'
@@ -51,7 +51,8 @@ export async function runReport(input: RunReportInput): Promise<RunReportResult>
   }
 
   const detectedAt = new Date().toISOString()
-  const allPicks: PickRow[] = []
+  const cardDate = detectedAt.slice(0, 10)
+  const allCandidates: Array<Awaited<ReturnType<typeof rankCandidates>>[number]> = []
 
   for (const sport of input.sports) {
     const fetchers = sportFetchers[sport]
@@ -61,16 +62,19 @@ export async function runReport(input: RunReportInput): Promise<RunReportResult>
       fetchers.pinnacle(input.env.ODDS_API_KEY),
     ])
     const snapshots = joinSources({ sport, actionNetwork, pinnacle })
-    const picks = scan({ snapshots, config: input.config, detectedAt })
-    for (const p of picks) {
-      // Persist every detected pick (idempotent — duplicates are no-ops).
-      // This is the side-effect that fixes the Phase 1.5 persistence gap.
-      await upsertPick(input.supabase, p)
-      allPicks.push(p)
-    }
+    const candidates = rankCandidates({ snapshots, config: input.config, detectedAt })
+    allCandidates.push(...candidates)
   }
 
-  allPicks.sort((a, b) => b.ev_pct - a.ev_pct)
+  allCandidates.sort((a, b) => b.score - a.score)
+  const topN = allCandidates.slice(0, input.config.daily_picks)
+
+  const allPicks: PickRow[] = []
+  for (const candidate of topN) {
+    const pick: PickRow = { ...candidate, card_date: cardDate }
+    await upsertPick(input.supabase, pick)
+    allPicks.push(pick)
+  }
 
   const email = renderEmail({
     picks: allPicks,
