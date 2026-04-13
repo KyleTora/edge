@@ -2,10 +2,10 @@ name: edge daily report
 
 on:
   schedule:
-    # 15:00 UTC = 11am EDT / 10am EST — morning MLB-only run
-    - cron: '0 15 * * *'
-    # 20:00 UTC = 4pm EDT / 3pm EST — afternoon all-sports run
-    - cron: '0 20 * * *'
+    # 14:00 UTC = 10am EDT / 9am EST — morning MLB-only run
+    - cron: '0 14 * * *'
+    # 19:00 UTC = 3pm EDT / 2pm EST — afternoon all-sports run
+    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
       sports:
@@ -32,7 +32,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=${{ inputs.sports }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
             echo "value=mlb" >> "$GITHUB_OUTPUT"
           else
             echo "value=mlb,nba,nhl" >> "$GITHUB_OUTPUT"
