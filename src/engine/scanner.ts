@@ -2,13 +2,16 @@ import type { Config } from '../config.js'
 import type { MarketSnapshot } from '../sources/normalize.js'
 import type { PickRow } from '../db/queries.js'
 import { devigTwoWay } from './devig.js'
-import { computeEv } from './ev.js'
+import { computeEv, americanToPayout } from './ev.js'
 
-export interface ScanInput {
+export interface RankInput {
   snapshots: MarketSnapshot[]
   config: Config
   detectedAt: string
 }
+
+/** Candidate pick — a PickRow without card_date (assigned by the command layer). */
+export type Candidate = Omit<PickRow, 'card_date'>
 
 const norm = (s: string): string => s.toLowerCase()
 
@@ -50,10 +53,21 @@ function findBestPrice(
   return { best, allPrices }
 }
 
-export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
-  const picks: PickRow[] = []
+function computeScore(evPct: number, trueProb: number, payout: number): number {
+  return evPct * Math.sqrt(trueProb * payout)
+}
+
+/**
+ * Score every side of every snapshot and return all candidates sorted by score
+ * descending. No filtering — the caller decides how many to take.
+ */
+export function rankCandidates({ snapshots, config, detectedAt }: RankInput): Candidate[] {
+  const candidates: Candidate[] = []
+  const detectedAtMs = Date.parse(detectedAt)
 
   for (const snap of snapshots) {
+    if (Date.parse(snap.startTime) <= detectedAtMs) continue
+
     if (snap.market === 'moneyline') {
       const { home, away } = devigTwoWay(snap.sharp.home, snap.sharp.away)
       const sides: Array<{ side: 'home' | 'away'; trueProb: number }> = [
@@ -62,11 +76,11 @@ export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
       ]
 
       for (const { side, trueProb } of sides) {
-        if (trueProb > config.max_sharp_implied_prob) continue
         const { best, allPrices } = findBestPrice(trueProb, side, snap.bookPrices, config.books)
         if (!best) continue
-        if (best.ev < config.ev_threshold) continue
-        picks.push({
+        const payout = americanToPayout(best.price)
+        const score = computeScore(best.ev, trueProb, payout)
+        candidates.push({
           id: `${gameDateFromIso(snap.startTime)}:${snap.sport}:${snap.gameId}:moneyline:${side}`,
           detected_at: detectedAt,
           sport: snap.sport,
@@ -84,6 +98,7 @@ export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
           sharp_implied: trueProb,
           ev_pct: best.ev,
           all_prices: allPrices,
+          score,
         })
       }
     } else if (snap.market === 'total') {
@@ -93,11 +108,11 @@ export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
         { side: 'under', trueProb: underProb },
       ]
       for (const { side, trueProb } of sides) {
-        if (trueProb > config.max_sharp_implied_prob) continue
         const { best, allPrices } = findBestPrice(trueProb, side, snap.bookPrices, config.books)
         if (!best) continue
-        if (best.ev < config.ev_threshold) continue
-        picks.push({
+        const payout = americanToPayout(best.price)
+        const score = computeScore(best.ev, trueProb, payout)
+        candidates.push({
           id: `${gameDateFromIso(snap.startTime)}:${snap.sport}:${snap.gameId}:total:${side}`,
           detected_at: detectedAt,
           sport: snap.sport,
@@ -115,10 +130,12 @@ export function scan({ snapshots, config, detectedAt }: ScanInput): PickRow[] {
           sharp_implied: trueProb,
           ev_pct: best.ev,
           all_prices: allPrices,
+          score,
         })
       }
     }
   }
 
-  return picks
+  candidates.sort((a, b) => b.score - a.score)
+  return candidates
 }
