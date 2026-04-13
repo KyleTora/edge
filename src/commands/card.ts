@@ -11,11 +11,11 @@ import {
   fetchPinnacleNhl,
 } from '../sources/odds-api.js'
 import { joinSources } from '../sources/normalize.js'
-import { scan } from '../engine/scanner.js'
-import { upsertPick, listPicksForDate, type PickRow } from '../db/queries.js'
-import { renderPicksTable } from '../ui/tables.js'
+import { rankCandidates, type Candidate } from '../engine/scanner.js'
+import { upsertPick, listPicksForCardDate, type PickRow } from '../db/queries.js'
+import { renderCardTable } from '../ui/tables.js'
 
-export interface RunScanInput {
+export interface RunCardInput {
   supabase: EdgeSupabase
   config: Config
   env: Env
@@ -23,14 +23,21 @@ export interface RunScanInput {
   print?: (msg: string) => void
 }
 
-export async function runScan({
+export async function runCard({
   supabase,
   config,
   env,
   detectedAt = new Date().toISOString(),
   print,
-}: RunScanInput): Promise<PickRow[]> {
-  const newPicks: PickRow[] = []
+}: RunCardInput): Promise<PickRow[]> {
+  const cardDate = detectedAt.slice(0, 10)
+
+  // Idempotency: if we already have picks for today, return them
+  const existing = await listPicksForCardDate(supabase, cardDate)
+  if (existing.length >= config.daily_picks) {
+    if (print) print(renderCardTable(existing))
+    return existing
+  }
 
   const sportFetchers: Record<
     string,
@@ -44,6 +51,8 @@ export async function runScan({
     nhl: { actionNetwork: fetchActionNetworkNhl, pinnacle: fetchPinnacleNhl },
   }
 
+  const allCandidates: Candidate[] = []
+
   for (const sport of config.sports) {
     const fetchers = sportFetchers[sport]
     if (!fetchers) continue
@@ -52,23 +61,21 @@ export async function runScan({
       fetchers.pinnacle(env.ODDS_API_KEY),
     ])
     const snapshots = joinSources({ sport, actionNetwork, pinnacle })
-    const picks = scan({ snapshots, config, detectedAt })
-    for (const p of picks) {
-      if (await upsertPick(supabase, p)) newPicks.push(p)
-    }
+    const candidates = rankCandidates({ snapshots, config, detectedAt })
+    allCandidates.push(...candidates)
   }
 
-  if (print) {
-    const today = detectedAt.slice(0, 10)
-    const tomorrow = new Date(today + 'T00:00:00Z')
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10)
-    const allPicks = [
-      ...(await listPicksForDate(supabase, today)),
-      ...(await listPicksForDate(supabase, tomorrowStr)),
-    ].sort((a, b) => b.ev_pct - a.ev_pct)
-    print(renderPicksTable(allPicks))
+  // Re-sort merged candidates from all sports
+  allCandidates.sort((a, b) => b.score - a.score)
+  const topN = allCandidates.slice(0, config.daily_picks)
+
+  const picks: PickRow[] = []
+  for (const candidate of topN) {
+    const pick: PickRow = { ...candidate, card_date: cardDate }
+    await upsertPick(supabase, pick)
+    picks.push(pick)
   }
 
-  return newPicks
+  if (print) print(renderCardTable(picks))
+  return picks
 }
