@@ -8,14 +8,11 @@ export const ConfigSchema = z.object({
   books: z.array(z.string()).min(1),
   manual_books: z.array(z.string()),
   sharp_anchor: z.literal('pinnacle'),
-  ev_threshold: z.number().min(0).max(1),
-  max_sharp_implied_prob: z.number().min(0).max(1),
+  daily_picks: z.number().int().positive().default(5),
   sports: z.array(z.string()).min(1),
   bankroll_units: z.number().positive(),
   unit_size_cad: z.number().positive(),
-  watch_interval_minutes: z.number().int().positive(),
   closing_line_capture_minutes_before_game: z.number().int().positive(),
-  stale_sharp_max_age_minutes: z.number().int().positive(),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
