@@ -1,29 +1,35 @@
 import { describe, it, expect } from 'vitest'
 import { renderEmail, type EmailRenderInput } from '../../src/email/render.js'
 import type { PickRow } from '../../src/db/queries.js'
+import type { SwapSummary } from '../../src/engine/swap-summary.js'
 
-const samplePick: PickRow = {
-  id: '2026-04-07:nba:an:12345:moneyline:home',
-  detected_at: '2026-04-07T20:00:00Z',
-  sport: 'nba',
-  game_id: 'an:12345',
-  game_date: '2026-04-07',
-  game_time: '2026-04-08T01:30:00Z',
-  away_team: 'Los Angeles Lakers',
-  home_team: 'Denver Nuggets',
-  market: 'moneyline',
-  side: 'home',
-  line: null,
-  best_book: 'BetMGM',
-  best_price: -108,
-  sharp_book: 'pinnacle',
-  sharp_implied: 0.5452,
-  ev_pct: 0.05,
-  all_prices: {},
-  score: 0.0412,
-  card_date: '2026-04-07',
-  status: 'active' as const,
+function makePick(overrides: Partial<PickRow> = {}): PickRow {
+  return {
+    id: '2026-04-07:nba:an:12345:moneyline:home',
+    detected_at: '2026-04-07T20:00:00Z',
+    sport: 'nba',
+    game_id: 'an:12345',
+    game_date: '2026-04-07',
+    game_time: '2026-04-08T01:30:00Z',
+    away_team: 'Los Angeles Lakers',
+    home_team: 'Denver Nuggets',
+    market: 'moneyline',
+    side: 'home',
+    line: null,
+    best_book: 'BetMGM',
+    best_price: -108,
+    sharp_book: 'pinnacle',
+    sharp_implied: 0.5452,
+    ev_pct: 0.05,
+    all_prices: {},
+    score: 0.0412,
+    card_date: '2026-04-07',
+    status: 'active' as const,
+    ...overrides,
+  }
 }
+
+const samplePick: PickRow = makePick()
 
 const baseInput: EmailRenderInput = {
   picks: [samplePick],
@@ -92,5 +98,56 @@ describe('renderEmail', () => {
     const out = renderEmail(baseInput)
     expect(out.html).toContain('4pm ET')
     expect(out.html).toContain('Apr 7')
+  })
+})
+
+describe('renderEmail with swapSummary', () => {
+  it('renders a "What changed" section with drop + add + started reasons', () => {
+    const picks: PickRow[] = [] // not the focus of this test
+    const swapSummary: SwapSummary = {
+      morningCardSize: 3,
+      dropped: [
+        { pick: makePick({ id: 'd1', away_team: 'Yankees', home_team: 'Red Sox' }), reason: 'sharp moved from 58.5% to 61.2%; EV +3.1% → -0.8%.' },
+      ],
+      added: [
+        // Candidate = Omit<PickRow, 'card_date'>. makePick returns PickRow; strip card_date.
+        { pick: (() => { const { card_date: _, ...rest } = makePick({ id: 'a1', away_team: 'Red Sox', home_team: 'Yankees' }); return rest })() as any, reason: 'EV +4.2% at current sharp (40.1% implied); top-N score.' },
+      ],
+      startedBeforeRefresh: [
+        { pick: makePick({ id: 's1', game_time: '2026-04-21T14:00:00Z' }) },
+      ],
+    }
+
+    const out = renderEmail({
+      picks,
+      quota: null,
+      runLabel: '3pm ET',
+      runDate: '2026-04-21',
+      sportsScanned: ['mlb', 'nba', 'nhl'],
+      swapSummary,
+    })
+
+    expect(out.html).toMatch(/What changed since morning/i)
+    expect(out.html).toContain('DROPPED')
+    expect(out.html).toContain('ADDED')
+    expect(out.html).toMatch(/game started before refresh/i)
+    expect(out.html).toContain('EV +4.2%')
+  })
+
+  it('omits the section when swapSummary has no changes', () => {
+    const out = renderEmail({
+      picks: [],
+      quota: null,
+      runLabel: '3pm ET',
+      runDate: '2026-04-21',
+      sportsScanned: ['mlb'],
+      swapSummary: {
+        morningCardSize: 0,
+        dropped: [],
+        added: [],
+        startedBeforeRefresh: [],
+      },
+    })
+    expect(out.html).not.toMatch(/What changed/)
   })
 })
