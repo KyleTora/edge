@@ -1,21 +1,10 @@
 import type { EdgeSupabase } from '../db/client.js'
 import type { Config, Env } from '../config.js'
-import {
-  fetchActionNetworkNba,
-  fetchActionNetworkMlb,
-  fetchActionNetworkNhl,
-} from '../sources/action-network.js'
-import {
-  fetchPinnacleNba,
-  fetchPinnacleMlb,
-  fetchPinnacleNhl,
-} from '../sources/odds-api.js'
-import { joinSources } from '../sources/normalize.js'
-import { rankCandidates } from '../engine/scanner.js'
-import { upsertPick, type PickRow } from '../db/queries.js'
+import { runCard, type CardMode } from './card.js'
 import { renderEmail, type RenderedEmail } from '../email/render.js'
 import { sendReportEmail } from '../email/send.js'
 import { getLastQuotaSnapshot } from '../quota.js'
+import type { PickRow } from '../db/queries.js'
 
 export interface RunReportInput {
   supabase: EdgeSupabase
@@ -25,6 +14,7 @@ export interface RunReportInput {
   runLabel: string
   runDate: string
   dryRun: boolean
+  mode?: CardMode                     // default: 'refresh'
   resendApiKey?: string
   emailTo?: string
   emailFrom?: string
@@ -38,54 +28,28 @@ export interface RunReportResult {
 }
 
 export async function runReport(input: RunReportInput): Promise<RunReportResult> {
-  const sportFetchers: Record<
-    string,
-    {
-      actionNetwork: () => Promise<Awaited<ReturnType<typeof fetchActionNetworkNba>>>
-      pinnacle: (key: string) => Promise<Awaited<ReturnType<typeof fetchPinnacleNba>>>
-    }
-  > = {
-    nba: { actionNetwork: fetchActionNetworkNba, pinnacle: fetchPinnacleNba },
-    mlb: { actionNetwork: fetchActionNetworkMlb, pinnacle: fetchPinnacleMlb },
-    nhl: { actionNetwork: fetchActionNetworkNhl, pinnacle: fetchPinnacleNhl },
-  }
-
+  const mode: CardMode = input.mode ?? 'refresh'
   const detectedAt = new Date().toISOString()
-  const cardDate = detectedAt.slice(0, 10)
-  const allCandidates: Array<Awaited<ReturnType<typeof rankCandidates>>[number]> = []
-
-  for (const sport of input.sports) {
-    const fetchers = sportFetchers[sport]
-    if (!fetchers) continue
-    const [actionNetwork, pinnacle] = await Promise.all([
-      fetchers.actionNetwork(),
-      fetchers.pinnacle(input.env.ODDS_API_KEY),
-    ])
-    const snapshots = joinSources({ sport, actionNetwork, pinnacle })
-    const candidates = rankCandidates({ snapshots, config: input.config, detectedAt })
-    allCandidates.push(...candidates)
-  }
-
-  allCandidates.sort((a, b) => b.score - a.score)
-  const topN = allCandidates.slice(0, input.config.daily_picks)
-
-  const allPicks: PickRow[] = []
-  for (const candidate of topN) {
-    const pick: PickRow = { ...candidate, card_date: cardDate }
-    await upsertPick(input.supabase, pick)
-    allPicks.push(pick)
-  }
+  const cardResult = await runCard({
+    supabase: input.supabase,
+    config: input.config,
+    env: input.env,
+    mode,
+    sports: input.sports,
+    detectedAt,
+  })
 
   const email = renderEmail({
-    picks: allPicks,
+    picks: cardResult.picks,
     quota: getLastQuotaSnapshot(),
     runLabel: input.runLabel,
     runDate: input.runDate,
     sportsScanned: input.sports,
+    swapSummary: cardResult.swapSummary,
   })
 
   if (input.dryRun) {
-    return { picks: allPicks, email, sent: false }
+    return { picks: cardResult.picks, email, sent: false }
   }
 
   if (!input.resendApiKey || !input.emailTo || !input.emailFrom) {
@@ -103,5 +67,5 @@ export async function runReport(input: RunReportInput): Promise<RunReportResult>
     csvContent: email.csv,
   })
 
-  return { picks: allPicks, email, sent: true, resendId: result.id }
+  return { picks: cardResult.picks, email, sent: true, resendId: result.id }
 }

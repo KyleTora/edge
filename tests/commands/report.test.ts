@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { runReport } from '../../src/commands/report.js'
 import type { Config } from '../../src/config.js'
 import { resetQuotaState, recordQuotaResponse } from '../../src/quota.js'
@@ -55,7 +55,13 @@ const ODDS_API_RESPONSE = [
   },
 ]
 
+const env = { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' }
+
 describe('runReport', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   beforeEach(() => {
     resetQuotaState()
     vi.stubGlobal(
@@ -151,5 +157,50 @@ describe('runReport', () => {
     expect(result.picks.length).toBeGreaterThan(0)
     const persisted = fake._tables.edge_picks ?? []
     expect(persisted.length).toBe(result.picks.length)
+  })
+
+  it('passes swapSummary from runCard into renderEmail on refresh', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-21T19:00:00Z'))
+
+    const fake = createFakeSupabase()
+    // Pre-populate a prior active pick whose game has started (relative to the refresh run)
+    await fake.from('edge_picks').insert([
+      {
+        id: '2026-04-21:mlb:g1:moneyline:home',
+        card_date: '2026-04-21',
+        status: 'active',
+        game_time: '2026-04-21T14:00:00Z',   // before the 19:00Z runReport below
+        sport: 'mlb',
+        game_id: 'g1',
+        market: 'moneyline',
+        side: 'home',
+        score: 0.05,
+        sharp_implied: 0.5,
+        ev_pct: 0.02,
+        away_team: 'A',
+        home_team: 'B',
+        game_date: '2026-04-21',
+        best_book: 'betmgm',
+        best_price: 110,
+        sharp_book: 'pinnacle',
+        all_prices: {},
+        detected_at: '2026-04-21T10:00:00Z',
+        line: null,
+      },
+    ])
+
+    const result = await runReport({
+      supabase: fake as never,
+      config,
+      env,
+      sports: ['mlb'],
+      runLabel: 'refresh',
+      runDate: '2026-04-21',
+      dryRun: true,
+      mode: 'refresh',
+    })
+
+    expect(result.email.html).toMatch(/game started before refresh/i)
   })
 })

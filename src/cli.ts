@@ -10,16 +10,24 @@ program.name('edge').description('Personal +EV sports betting CLI').version('0.1
 
 program
   .command('card', { isDefault: true })
-  .description('Generate today\'s top-5 daily card across all sports')
-  .action(async () => {
+  .description('Generate or refresh today\'s top-N daily card across sports')
+  .option('--mode <mode>', 'morning | refresh (default: refresh)', 'refresh')
+  .option('--sports <list>', 'comma-separated sports list (overrides config.sports)')
+  .action(async (opts: { mode: string; sports?: string }) => {
     try {
+      if (opts.mode !== 'morning' && opts.mode !== 'refresh') {
+        throw new Error(`invalid mode: ${opts.mode} (expected 'morning' or 'refresh')`)
+      }
       const config = loadConfigFromDisk()
       const env = loadEnv()
       const supabase = createSupabase(env)
+      const sports = opts.sports ? opts.sports.split(',').map((s) => s.trim()) : config.sports
       await runCard({
         supabase,
         config,
         env,
+        mode: opts.mode,
+        sports,
         print: (msg) => process.stdout.write(msg + '\n'),
       })
     } catch (err) {
@@ -30,11 +38,15 @@ program
 
 program
   .command('report')
-  .description('Run a scan and email the results via Resend')
+  .description('Run a card stage and email the results via Resend')
+  .option('--mode <mode>', 'morning | refresh (default: refresh)', 'refresh')
   .option('--sports <list>', 'comma-separated sports list (overrides config.sports)')
   .option('--dry-run', 'render the email but do not send it; print to stdout instead')
-  .action(async (opts: { sports?: string; dryRun?: boolean }) => {
+  .action(async (opts: { mode: string; sports?: string; dryRun?: boolean }) => {
     try {
+      if (opts.mode !== 'morning' && opts.mode !== 'refresh') {
+        throw new Error(`invalid mode: ${opts.mode} (expected 'morning' or 'refresh')`)
+      }
       const config = loadConfigFromDisk()
       const env = loadEnv()
       const supabase = createSupabase(env)
@@ -46,9 +58,20 @@ program
         month: '2-digit',
         day: '2-digit',
       }).format(now)
-      const runLabel = sports.length === 1 && sports[0] === 'mlb'
-        ? '11am ET (MLB only)'
-        : '4pm ET'
+      const runLabel = opts.mode === 'morning' ? '10am ET (morning)' : '3pm ET (refresh)'
+
+      // Morning runs never email — short-circuit via runCard directly.
+      if (opts.mode === 'morning') {
+        await runCard({
+          supabase,
+          config,
+          env,
+          mode: 'morning',
+          sports,
+          print: (msg) => process.stdout.write(msg + '\n'),
+        })
+        return
+      }
 
       const result = await runReport({
         supabase,
@@ -58,6 +81,7 @@ program
         runLabel,
         runDate,
         dryRun: !!opts.dryRun,
+        mode: 'refresh',
         resendApiKey: process.env.RESEND_API_KEY,
         emailTo: process.env.REPORT_EMAIL_TO,
         emailFrom: process.env.REPORT_EMAIL_FROM,

@@ -9,6 +9,7 @@ interface QueryState {
 
 export interface FakeQuery extends Promise<{ data: Row[] | null; error: null }> {
   eq(column: string, value: unknown): FakeQuery
+  neq(column: string, value: unknown): FakeQuery
   gte(column: string, value: unknown): FakeQuery
   lte(column: string, value: unknown): FakeQuery
   lt(column: string, value: unknown): FakeQuery
@@ -20,6 +21,10 @@ export interface FakeQuery extends Promise<{ data: Row[] | null; error: null }> 
   limit(n: number): FakeQuery
 }
 
+export interface FakeUpdateBuilder extends Promise<{ error: null }> {
+  eq(column: string, value: unknown): FakeUpdateBuilder
+}
+
 export interface FakeSupabase {
   from(table: string): {
     select: (cols?: string) => FakeQuery
@@ -28,6 +33,7 @@ export interface FakeSupabase {
       row: Row | Row[],
       opts?: { onConflict?: string; ignoreDuplicates?: boolean }
     ) => Promise<{ error: null }>
+    update: (patch: Row) => FakeUpdateBuilder
   }
   // test-only inspection helper
   _tables: Record<string, Row[]>
@@ -65,6 +71,8 @@ function makeQuery(state: QueryState, tables: Record<string, Row[]>): FakeQuery 
   const promise = exec() as unknown as FakeQuery
   promise.eq = (column, value) =>
     makeQuery({ ...state, filters: [...state.filters, (r) => r[column] === value] }, tables)
+  promise.neq = (column, value) =>
+    makeQuery({ ...state, filters: [...state.filters, (r) => r[column] !== value] }, tables)
   promise.gte = (column, value) =>
     makeQuery(
       { ...state, filters: [...state.filters, (r) => (r[column] as never) >= (value as never)] },
@@ -154,6 +162,34 @@ export function createFakeSupabase(): FakeSupabase {
             }
           }
           return { error: null }
+        },
+        update: (patch: Row) => {
+          const makeUpdateBuilder = (
+            filters: Array<(row: Row) => boolean>
+          ): FakeUpdateBuilder => {
+            let settled: Promise<{ error: null }> | undefined
+            const run = async () => {
+              const t = getTable(tables, table)
+              for (const r of t) {
+                if (filters.every((f) => f(r))) Object.assign(r, patch)
+              }
+              return { error: null as null }
+            }
+            const thenable = {
+              then(
+                resolve?: (value: { error: null }) => unknown,
+                reject?: (reason: unknown) => unknown
+              ) {
+                if (!settled) settled = run()
+                return settled.then(resolve, reject)
+              },
+              eq(column: string, value: unknown): FakeUpdateBuilder {
+                return makeUpdateBuilder([...filters, (r) => r[column] === value])
+              },
+            } as unknown as FakeUpdateBuilder
+            return thenable
+          }
+          return makeUpdateBuilder([])
         },
       }
     },

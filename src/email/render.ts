@@ -1,5 +1,6 @@
 import type { PickRow } from '../db/queries.js'
 import type { QuotaSnapshot } from '../quota.js'
+import type { SwapSummary } from '../engine/swap-summary.js'
 
 export interface EmailRenderInput {
   picks: PickRow[]
@@ -7,6 +8,7 @@ export interface EmailRenderInput {
   runLabel: string         // e.g. "4pm ET" or "11am ET (MLB only)"
   runDate: string          // YYYY-MM-DD in local time (ET)
   sportsScanned: string[]  // e.g. ['mlb', 'nba', 'nhl']
+  swapSummary?: SwapSummary
 }
 
 export interface RenderedEmail {
@@ -75,6 +77,36 @@ function buildSubject(input: EmailRenderInput): string {
   return `edge — ${count} ${noun} for ${dateStr} (${topPickSummary(input.picks)})`
 }
 
+function buildSwapHtml(summary: SwapSummary): string {
+  const hasChanges =
+    summary.added.length + summary.dropped.length + summary.startedBeforeRefresh.length > 0
+  if (!hasChanges) return ''
+
+  const rows: string[] = []
+  for (const d of summary.dropped) {
+    rows.push(
+      `<li><strong style="color:#a53030;">DROPPED</strong> ${pickLabel(d.pick)} (${d.pick.sport.toUpperCase()} — ${abbr(d.pick.away_team)} @ ${abbr(d.pick.home_team)}): ${d.reason}</li>`
+    )
+  }
+  for (const a of summary.added) {
+    rows.push(
+      `<li><strong style="color:#0a7c2f;">ADDED</strong> ${pickLabel(a.pick as unknown as PickRow)} (${a.pick.sport.toUpperCase()} — ${abbr(a.pick.away_team)} @ ${abbr(a.pick.home_team)}): ${a.reason}</li>`
+    )
+  }
+  for (const s of summary.startedBeforeRefresh) {
+    rows.push(
+      `<li>${pickLabel(s.pick)} (${s.pick.sport.toUpperCase()}): game started before refresh, kept on card.</li>`
+    )
+  }
+
+  return `<div style="margin-top:20px;font-family:system-ui,sans-serif;font-size:13px;color:#333;">
+  <h3 style="margin:8px 0;font-size:15px;">What changed since morning</h3>
+  <ul style="padding-left:18px;margin:4px 0;line-height:1.5;">
+${rows.join('\n')}
+  </ul>
+</div>`
+}
+
 function buildHtml(input: EmailRenderInput): string {
   const dateStr = fmtDate(input.runDate)
   const header = `<h2 style="margin:0 0 8px 0;font-family:system-ui,sans-serif;">edge daily report — ${dateStr} — ${input.runLabel}</h2>`
@@ -132,11 +164,14 @@ ${rows}
   <p style="margin:12px 0 0 0;color:#999;font-size:12px;">CSV attached for spreadsheet import.</p>
 </div>`
 
+  const swapHtml = input.swapSummary ? buildSwapHtml(input.swapSummary) : ''
+
   return `<!doctype html>
 <html><body style="background:#fafafa;padding:20px;margin:0;">
 <div style="max-width:760px;margin:0 auto;background:white;padding:24px;border-radius:8px;border:1px solid #e5e5e5;">
 ${header}
 ${body}
+${swapHtml}
 ${stats}
 </div>
 </body></html>`

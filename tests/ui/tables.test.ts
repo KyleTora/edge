@@ -25,6 +25,7 @@ const pick: PickRow = {
   all_prices: {},
   score: 0.0412,
   card_date: '2026-04-06',
+  status: 'active' as const,
 }
 
 describe('renderPicksTable', () => {

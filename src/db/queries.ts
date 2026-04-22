@@ -20,6 +20,7 @@ export interface PickRow {
   all_prices: Record<string, number>
   score: number
   card_date: string
+  status: 'active' | 'swapped_off'
 }
 
 /**
@@ -62,6 +63,7 @@ export async function listPicksForCardDate(
     .from('edge_picks')
     .select('*')
     .eq('card_date', cardDate)
+    .neq('status', 'swapped_off')
     .order('score', { ascending: false })
   if (res.error) throw new Error(`listPicksForCardDate error: ${res.error.message}`)
   return (res.data ?? []) as PickRow[]
@@ -124,6 +126,7 @@ export async function listPicksAwaitingGrade(
     .select('*')
     .gte('game_date', startStr)
     .lte('game_date', referenceDate)
+    .neq('status', 'swapped_off')
   if (picksRes.error) throw new Error(`listPicksAwaitingGrade.picks error: ${picksRes.error.message}`)
   const picks = (picksRes.data ?? []) as PickRow[]
   if (picks.length === 0) return []
@@ -175,6 +178,7 @@ export async function listPicksAwaitingClose(
     .select('*')
     .gte('game_time', startIso)
     .lt('game_time', endIso)
+    .neq('status', 'swapped_off')
   if (picksRes.error)
     throw new Error(`listPicksAwaitingClose.picks error: ${picksRes.error.message}`)
   const picks = (picksRes.data ?? []) as PickRow[]
@@ -213,6 +217,7 @@ export async function getPicksWithGradesInRange(
     .select('*')
     .gte('game_date', startDate)
     .lte('game_date', endDate)
+    .neq('status', 'swapped_off')
   if (picksRes.error) throw new Error(`getPicksWithGradesInRange.picks: ${picksRes.error.message}`)
   const picks = (picksRes.data ?? []) as PickRow[]
   if (picks.length === 0) return []
@@ -263,6 +268,7 @@ export async function getPicksGradedSince(
       'id',
       grades.map((g) => g.pick_id)
     )
+    .neq('status', 'swapped_off')
   if (picksRes.error) throw new Error(`getPicksGradedSince.picks: ${picksRes.error.message}`)
   const pickById = new Map(((picksRes.data ?? []) as PickRow[]).map((p) => [p.id, p]))
 
@@ -273,6 +279,43 @@ export async function getPicksGradedSince(
     result.push({ ...p, outcome: g.outcome, graded_at: g.graded_at })
   }
   return result
+}
+
+export async function listActivePicksForCardDate(
+  supabase: EdgeSupabase,
+  cardDate: string
+): Promise<PickRow[]> {
+  const res = await supabase
+    .from('edge_picks')
+    .select('*')
+    .eq('card_date', cardDate)
+    .eq('status', 'active')
+    .order('score', { ascending: false })
+  if (res.error) throw new Error(`listActivePicksForCardDate error: ${res.error.message}`)
+  return (res.data ?? []) as PickRow[]
+}
+
+export async function listSwappedOffPickIdsForCardDate(
+  supabase: EdgeSupabase,
+  cardDate: string
+): Promise<Set<string>> {
+  const res = await supabase
+    .from('edge_picks')
+    .select('id')
+    .eq('card_date', cardDate)
+    .eq('status', 'swapped_off')
+  if (res.error) throw new Error(`listSwappedOffPickIdsForCardDate error: ${res.error.message}`)
+  const rows = (res.data ?? []) as Array<{ id: string }>
+  return new Set(rows.map((r) => r.id))
+}
+
+export async function updatePickStatus(
+  supabase: EdgeSupabase,
+  id: string,
+  status: 'active' | 'swapped_off'
+): Promise<void> {
+  const res = await supabase.from('edge_picks').update({ status }).eq('id', id)
+  if (res.error) throw new Error(`updatePickStatus error: ${res.error.message}`)
 }
 
 export async function getClosingLinesForPicks(

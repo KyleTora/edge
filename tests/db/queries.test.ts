@@ -23,6 +23,7 @@ function makePick(overrides: Partial<PickRow> = {}): PickRow {
     all_prices: { bet365: -108, betmgm: -120 },
     score: 0.0412,
     card_date: '2026-04-06',
+    status: 'active' as const,
     ...overrides,
   }
 }
@@ -234,7 +235,13 @@ describe('record-related queries', () => {
   })
 })
 
-import { getPicksGradedSince } from '../../src/db/queries.js'
+import {
+  getPicksGradedSince,
+  listPicksForCardDate,
+  updatePickStatus,
+  listActivePicksForCardDate,
+  listSwappedOffPickIdsForCardDate,
+} from '../../src/db/queries.js'
 
 describe('getPicksGradedSince', () => {
   let fake: FakeSupabase
@@ -274,5 +281,66 @@ describe('getPicksGradedSince', () => {
     })
     const result = await getPicksGradedSince(fake as never, '2026-04-08T00:00:00Z')
     expect(result).toEqual([])
+  })
+})
+
+describe('listPicksForCardDate', () => {
+  it('excludes rows with status=swapped_off', async () => {
+    const fake = createFakeSupabase()
+    await fake.from('edge_picks').insert([
+      { id: 'a', card_date: '2026-04-21', status: 'active', score: 0.05 },
+      { id: 'b', card_date: '2026-04-21', status: 'swapped_off', score: 0.07 },
+      { id: 'c', card_date: '2026-04-21', status: 'active', score: 0.03 },
+    ])
+
+    const rows = await listPicksForCardDate(fake as never, '2026-04-21')
+
+    expect(rows.map((r) => r.id)).toEqual(['a', 'c'])
+  })
+})
+
+describe('updatePickStatus', () => {
+  it('updates a row from active to swapped_off by id', async () => {
+    const fake = createFakeSupabase()
+    await fake.from('edge_picks').insert([
+      { id: 'a', card_date: '2026-04-21', status: 'active' },
+      { id: 'b', card_date: '2026-04-21', status: 'active' },
+    ])
+
+    await updatePickStatus(fake as never, 'a', 'swapped_off')
+
+    const rows = fake._tables.edge_picks!
+    expect(rows.find((r) => r.id === 'a')!.status).toBe('swapped_off')
+    expect(rows.find((r) => r.id === 'b')!.status).toBe('active')
+  })
+})
+
+describe('listActivePicksForCardDate', () => {
+  it('returns only active rows for the given card date', async () => {
+    const fake = createFakeSupabase()
+    await fake.from('edge_picks').insert([
+      { id: 'a', card_date: '2026-04-21', status: 'active' },
+      { id: 'b', card_date: '2026-04-21', status: 'swapped_off' },
+      { id: 'c', card_date: '2026-04-20', status: 'active' },
+    ])
+
+    const rows = await listActivePicksForCardDate(fake as never, '2026-04-21')
+
+    expect(rows.map((r) => r.id)).toEqual(['a'])
+  })
+})
+
+describe('listSwappedOffPickIdsForCardDate', () => {
+  it('returns ids of swapped_off rows for the given card date', async () => {
+    const fake = createFakeSupabase()
+    await fake.from('edge_picks').insert([
+      { id: 'a', card_date: '2026-04-21', status: 'active' },
+      { id: 'b', card_date: '2026-04-21', status: 'swapped_off' },
+      { id: 'c', card_date: '2026-04-20', status: 'swapped_off' },
+    ])
+
+    const ids = await listSwappedOffPickIdsForCardDate(fake as never, '2026-04-21')
+
+    expect(Array.from(ids)).toEqual(['b'])
   })
 })

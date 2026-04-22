@@ -2,12 +2,16 @@ name: edge daily report
 
 on:
   schedule:
-    # 14:00 UTC = 10am EDT / 9am EST — morning MLB-only run
+    # 14:00 UTC = 10am EDT / 9am EST — silent morning MLB run
     - cron: '0 14 * * *'
-    # 19:00 UTC = 3pm EDT / 2pm EST — afternoon all-sports run
+    # 19:00 UTC = 3pm EDT / 2pm EST — refresh, all sports, email
     - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'morning | refresh'
+        required: false
+        default: 'refresh'
       sports:
         description: 'Comma-separated sports list'
         required: false
@@ -27,19 +31,22 @@ jobs:
 
       - run: npm ci
 
-      - name: Determine sports filter
-        id: sports
+      - name: Determine run parameters
+        id: params
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=${{ inputs.sports }}" >> "$GITHUB_OUTPUT"
+            echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
+            echo "sports=${{ inputs.sports }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
-            echo "value=mlb" >> "$GITHUB_OUTPUT"
+            echo "mode=morning" >> "$GITHUB_OUTPUT"
+            echo "sports=mlb" >> "$GITHUB_OUTPUT"
           else
-            echo "value=mlb,nba,nhl" >> "$GITHUB_OUTPUT"
+            echo "mode=refresh" >> "$GITHUB_OUTPUT"
+            echo "sports=mlb,nba,nhl" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run report
-        run: npm run edge:report -- --sports=${{ steps.sports.outputs.value }}
+        run: npm run edge:report -- --mode=${{ steps.params.outputs.mode }} --sports=${{ steps.params.outputs.sports }}
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

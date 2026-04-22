@@ -29,6 +29,7 @@ function makePick(id: string, overrides: Partial<PickRow> = {}): PickRow {
     all_prices: { betmgm: -145 },
     score: 0.0285,
     card_date: '2026-04-07',
+    status: 'active' as const,
     ...overrides,
   }
 }

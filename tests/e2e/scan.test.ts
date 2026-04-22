@@ -115,6 +115,8 @@ describe('e2e: card', () => {
       supabase: fake as never,
       config,
       env,
+      mode: 'morning',
+      sports: config.sports,
       detectedAt: '2026-04-06T18:00:00Z',
     })
     const rows = fake._tables.edge_picks ?? []
@@ -128,6 +130,8 @@ describe('e2e: card', () => {
       supabase: fake as never,
       config,
       env,
+      mode: 'morning',
+      sports: config.sports,
       detectedAt: '2026-04-06T18:00:00Z',
     })
     // Second run — picks already exist (card_date idempotency kicks in if daily_picks reached,
@@ -136,6 +140,8 @@ describe('e2e: card', () => {
       supabase: fake as never,
       config,
       env,
+      mode: 'morning',
+      sports: config.sports,
       detectedAt: '2026-04-06T19:00:00Z',
     })
     const rows = fake._tables.edge_picks ?? []
