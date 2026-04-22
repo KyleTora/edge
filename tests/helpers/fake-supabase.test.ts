@@ -83,4 +83,20 @@ describe('fake-supabase', () => {
     const sel = await fake.from('edge_picks').select('*').not('line', 'is', null)
     expect(sel.data?.map((r) => r.id)).toEqual(['b'])
   })
+
+  it('supports update().eq() to mutate matching rows', async () => {
+    const fake = createFakeSupabase()
+    await fake.from('edge_picks').insert([
+      { id: 'a', status: 'active' },
+      { id: 'b', status: 'active' },
+    ])
+
+    const res = await fake.from('edge_picks').update({ status: 'swapped_off' }).eq('id', 'a')
+
+    expect(res.error).toBeNull()
+    expect(fake._tables.edge_picks).toEqual([
+      { id: 'a', status: 'swapped_off' },
+      { id: 'b', status: 'active' },
+    ])
+  })
 })

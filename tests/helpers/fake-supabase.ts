@@ -20,6 +20,10 @@ export interface FakeQuery extends Promise<{ data: Row[] | null; error: null }> 
   limit(n: number): FakeQuery
 }
 
+export interface FakeUpdateBuilder extends Promise<{ error: null }> {
+  eq(column: string, value: unknown): FakeUpdateBuilder
+}
+
 export interface FakeSupabase {
   from(table: string): {
     select: (cols?: string) => FakeQuery
@@ -28,6 +32,7 @@ export interface FakeSupabase {
       row: Row | Row[],
       opts?: { onConflict?: string; ignoreDuplicates?: boolean }
     ) => Promise<{ error: null }>
+    update: (patch: Row) => FakeUpdateBuilder
   }
   // test-only inspection helper
   _tables: Record<string, Row[]>
@@ -154,6 +159,29 @@ export function createFakeSupabase(): FakeSupabase {
             }
           }
           return { error: null }
+        },
+        update: (patch: Row) => {
+          const filters: Array<(row: Row) => boolean> = []
+          const makeUpdateBuilder = (): FakeUpdateBuilder => {
+            const thenable = {
+              then(
+                resolve?: (value: { error: null }) => unknown,
+                reject?: (reason: unknown) => unknown
+              ) {
+                const t = getTable(tables, table)
+                for (const r of t) {
+                  if (filters.every((f) => f(r))) Object.assign(r, patch)
+                }
+                return Promise.resolve({ error: null as null }).then(resolve, reject)
+              },
+              eq(column: string, value: unknown): FakeUpdateBuilder {
+                filters.push((r) => r[column] === value)
+                return makeUpdateBuilder()
+              },
+            } as unknown as FakeUpdateBuilder
+            return thenable
+          }
+          return makeUpdateBuilder()
         },
       }
     },
