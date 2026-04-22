@@ -29,12 +29,14 @@ export interface RunReportResult {
 
 export async function runReport(input: RunReportInput): Promise<RunReportResult> {
   const mode: CardMode = input.mode ?? 'refresh'
+  const detectedAt = new Date().toISOString()
   const cardResult = await runCard({
     supabase: input.supabase,
     config: input.config,
     env: input.env,
     mode,
     sports: input.sports,
+    detectedAt,
   })
 
   const email = renderEmail({
