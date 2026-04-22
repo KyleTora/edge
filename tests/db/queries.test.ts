@@ -23,6 +23,7 @@ function makePick(overrides: Partial<PickRow> = {}): PickRow {
     all_prices: { bet365: -108, betmgm: -120 },
     score: 0.0412,
     card_date: '2026-04-06',
+    status: 'active' as const,
     ...overrides,
   }
 }
@@ -234,7 +235,7 @@ describe('record-related queries', () => {
   })
 })
 
-import { getPicksGradedSince } from '../../src/db/queries.js'
+import { getPicksGradedSince, listPicksForCardDate } from '../../src/db/queries.js'
 
 describe('getPicksGradedSince', () => {
   let fake: FakeSupabase
@@ -274,5 +275,20 @@ describe('getPicksGradedSince', () => {
     })
     const result = await getPicksGradedSince(fake as never, '2026-04-08T00:00:00Z')
     expect(result).toEqual([])
+  })
+})
+
+describe('listPicksForCardDate', () => {
+  it('excludes rows with status=swapped_off', async () => {
+    const fake = createFakeSupabase()
+    await fake.from('edge_picks').insert([
+      { id: 'a', card_date: '2026-04-21', status: 'active', score: 0.05 },
+      { id: 'b', card_date: '2026-04-21', status: 'swapped_off', score: 0.07 },
+      { id: 'c', card_date: '2026-04-21', status: 'active', score: 0.03 },
+    ])
+
+    const rows = await listPicksForCardDate(fake as never, '2026-04-21')
+
+    expect(rows.map((r) => r.id)).toEqual(['a', 'c'])
   })
 })

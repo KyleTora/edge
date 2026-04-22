@@ -9,6 +9,7 @@ interface QueryState {
 
 export interface FakeQuery extends Promise<{ data: Row[] | null; error: null }> {
   eq(column: string, value: unknown): FakeQuery
+  neq(column: string, value: unknown): FakeQuery
   gte(column: string, value: unknown): FakeQuery
   lte(column: string, value: unknown): FakeQuery
   lt(column: string, value: unknown): FakeQuery
@@ -70,6 +71,8 @@ function makeQuery(state: QueryState, tables: Record<string, Row[]>): FakeQuery 
   const promise = exec() as unknown as FakeQuery
   promise.eq = (column, value) =>
     makeQuery({ ...state, filters: [...state.filters, (r) => r[column] === value] }, tables)
+  promise.neq = (column, value) =>
+    makeQuery({ ...state, filters: [...state.filters, (r) => r[column] !== value] }, tables)
   promise.gte = (column, value) =>
     makeQuery(
       { ...state, filters: [...state.filters, (r) => (r[column] as never) >= (value as never)] },

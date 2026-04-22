@@ -24,6 +24,7 @@ function makePick(id: string, overrides: Record<string, unknown> = {}) {
     all_prices: { betmgm: -110 },
     score: 0.0275,
     card_date: '2026-04-06',
+    status: 'active' as const,
     ...overrides,
   }
 }

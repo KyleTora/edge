@@ -99,6 +99,7 @@ export function rankCandidates({ snapshots, config, detectedAt }: RankInput): Ca
           ev_pct: best.ev,
           all_prices: allPrices,
           score,
+          status: 'active',
         })
       }
     } else if (snap.market === 'total') {
@@ -131,6 +132,7 @@ export function rankCandidates({ snapshots, config, detectedAt }: RankInput): Ca
           ev_pct: best.ev,
           all_prices: allPrices,
           score,
+          status: 'active',
         })
       }
     }
