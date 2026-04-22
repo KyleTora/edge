@@ -281,6 +281,34 @@ export async function getPicksGradedSince(
   return result
 }
 
+export async function listActivePicksForCardDate(
+  supabase: EdgeSupabase,
+  cardDate: string
+): Promise<PickRow[]> {
+  const res = await supabase
+    .from('edge_picks')
+    .select('*')
+    .eq('card_date', cardDate)
+    .eq('status', 'active')
+    .order('score', { ascending: false })
+  if (res.error) throw new Error(`listActivePicksForCardDate error: ${res.error.message}`)
+  return (res.data ?? []) as PickRow[]
+}
+
+export async function listSwappedOffPickIdsForCardDate(
+  supabase: EdgeSupabase,
+  cardDate: string
+): Promise<Set<string>> {
+  const res = await supabase
+    .from('edge_picks')
+    .select('id')
+    .eq('card_date', cardDate)
+    .eq('status', 'swapped_off')
+  if (res.error) throw new Error(`listSwappedOffPickIdsForCardDate error: ${res.error.message}`)
+  const rows = (res.data ?? []) as Array<{ id: string }>
+  return new Set(rows.map((r) => r.id))
+}
+
 export async function updatePickStatus(
   supabase: EdgeSupabase,
   id: string,
