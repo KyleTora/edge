@@ -281,6 +281,15 @@ export async function getPicksGradedSince(
   return result
 }
 
+export async function updatePickStatus(
+  supabase: EdgeSupabase,
+  id: string,
+  status: 'active' | 'swapped_off'
+): Promise<void> {
+  const res = await supabase.from('edge_picks').update({ status }).eq('id', id)
+  if (res.error) throw new Error(`updatePickStatus error: ${res.error.message}`)
+}
+
 export async function getClosingLinesForPicks(
   supabase: EdgeSupabase,
   pickIds: string[]
