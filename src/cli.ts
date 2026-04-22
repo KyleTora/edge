@@ -20,6 +20,8 @@ program
         supabase,
         config,
         env,
+        mode: 'refresh',
+        sports: config.sports,
         print: (msg) => process.stdout.write(msg + '\n'),
       })
     } catch (err) {
