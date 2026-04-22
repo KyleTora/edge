@@ -161,27 +161,32 @@ export function createFakeSupabase(): FakeSupabase {
           return { error: null }
         },
         update: (patch: Row) => {
-          const filters: Array<(row: Row) => boolean> = []
-          const makeUpdateBuilder = (): FakeUpdateBuilder => {
+          const makeUpdateBuilder = (
+            filters: Array<(row: Row) => boolean>
+          ): FakeUpdateBuilder => {
+            let settled: Promise<{ error: null }> | undefined
+            const run = async () => {
+              const t = getTable(tables, table)
+              for (const r of t) {
+                if (filters.every((f) => f(r))) Object.assign(r, patch)
+              }
+              return { error: null as null }
+            }
             const thenable = {
               then(
                 resolve?: (value: { error: null }) => unknown,
                 reject?: (reason: unknown) => unknown
               ) {
-                const t = getTable(tables, table)
-                for (const r of t) {
-                  if (filters.every((f) => f(r))) Object.assign(r, patch)
-                }
-                return Promise.resolve({ error: null as null }).then(resolve, reject)
+                if (!settled) settled = run()
+                return settled.then(resolve, reject)
               },
               eq(column: string, value: unknown): FakeUpdateBuilder {
-                filters.push((r) => r[column] === value)
-                return makeUpdateBuilder()
+                return makeUpdateBuilder([...filters, (r) => r[column] === value])
               },
             } as unknown as FakeUpdateBuilder
             return thenable
           }
-          return makeUpdateBuilder()
+          return makeUpdateBuilder([])
         },
       }
     },

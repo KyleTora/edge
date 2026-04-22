@@ -85,18 +85,53 @@ describe('fake-supabase', () => {
   })
 
   it('supports update().eq() to mutate matching rows', async () => {
-    const fake = createFakeSupabase()
-    await fake.from('edge_picks').insert([
+    const localFake = createFakeSupabase()
+    await localFake.from('edge_picks').insert([
       { id: 'a', status: 'active' },
       { id: 'b', status: 'active' },
     ])
 
-    const res = await fake.from('edge_picks').update({ status: 'swapped_off' }).eq('id', 'a')
+    const res = await localFake.from('edge_picks').update({ status: 'swapped_off' }).eq('id', 'a')
 
     expect(res.error).toBeNull()
-    expect(fake._tables.edge_picks).toEqual([
+    expect(localFake._tables.edge_picks).toEqual([
       { id: 'a', status: 'swapped_off' },
       { id: 'b', status: 'active' },
+    ])
+  })
+
+  it('update builder is idempotent when awaited more than once', async () => {
+    const localFake = createFakeSupabase()
+    await localFake.from('edge_picks').insert([
+      { id: 'a', count: 0 },
+      { id: 'b', count: 0 },
+    ])
+
+    const builder = localFake.from('edge_picks').update({ count: 1 }).eq('id', 'a')
+    await builder
+    await builder
+
+    expect(localFake._tables.edge_picks).toEqual([
+      { id: 'a', count: 1 },
+      { id: 'b', count: 0 },
+    ])
+  })
+
+  it('update builder chains are independent (no shared mutable filter state)', async () => {
+    const localFake = createFakeSupabase()
+    await localFake.from('edge_picks').insert([
+      { id: 'a', status: 'active', sport: 'mlb' },
+      { id: 'b', status: 'active', sport: 'nba' },
+    ])
+
+    const base = localFake.from('edge_picks').update({ status: 'swapped_off' })
+    // deliberately do NOT await `base` — we only use it to branch
+    const onlyMlb = base.eq('sport', 'mlb')
+    await onlyMlb
+
+    expect(localFake._tables.edge_picks).toEqual([
+      { id: 'a', status: 'swapped_off', sport: 'mlb' },
+      { id: 'b', status: 'active', sport: 'nba' },
     ])
   })
 })
