@@ -50,11 +50,25 @@ const config: Config = {
   books: ['betmgm'],
   manual_books: [],
   sharp_anchor: 'pinnacle',
-  daily_picks: 5,
   sports: ['mlb'],
   bankroll_units: 100,
   unit_size_cad: 25,
-  closing_line_capture_minutes_before_game: 5,
+  parlay: {
+    target_odds: 100,
+    odds_tolerance: [-110, 130],
+    min_legs: 2,
+    max_legs: 3,
+    min_leg_prob: 0.70,
+    max_leg_prob: 0.85,
+    filler_min_prob: 0.75,
+    stake_base: 10,
+    stake_multiplier: 2,
+    prop_markets: {
+      nba: ['points', 'rebounds', 'assists', 'threes_made'],
+      mlb: ['hits', 'total_bases', 'rbis', 'strikeouts_pitcher'],
+      nhl: ['shots_on_goal', 'points_player'],
+    },
+  },
 }
 const env: Env = {
   ODDS_API_KEY: 'test',

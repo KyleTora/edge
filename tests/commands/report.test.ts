@@ -8,11 +8,25 @@ const config: Config = {
   books: ['BetMGM', 'DraftKings', 'Caesars', 'BetRivers'],
   manual_books: ['thescore', 'bet365'],
   sharp_anchor: 'pinnacle',
-  daily_picks: 5,
   sports: ['nba', 'mlb', 'nhl'],
   bankroll_units: 100,
   unit_size_cad: 25,
-  closing_line_capture_minutes_before_game: 5,
+  parlay: {
+    target_odds: 100,
+    odds_tolerance: [-110, 130],
+    min_legs: 2,
+    max_legs: 3,
+    min_leg_prob: 0.70,
+    max_leg_prob: 0.85,
+    filler_min_prob: 0.75,
+    stake_base: 10,
+    stake_multiplier: 2,
+    prop_markets: {
+      nba: ['points', 'rebounds', 'assists', 'threes_made'],
+      mlb: ['hits', 'total_bases', 'rbis', 'strikeouts_pitcher'],
+      nhl: ['shots_on_goal', 'points_player'],
+    },
+  },
 }
 
 const ACTION_NETWORK_RESPONSE = {
@@ -127,14 +141,13 @@ describe('runReport', () => {
     expect(result.picks.every((p) => p.sport === 'mlb')).toBe(true)
   })
 
-  it('produces a quiet-day email when daily_picks is 0', async () => {
+  it('produces a quiet-day email when no sports yield picks', async () => {
     const fake = createFakeSupabase()
-    const zeroPicksConfig = { ...config, daily_picks: 0 }
     const result = await runReport({
       supabase: fake as never,
-      config: zeroPicksConfig,
+      config,
       env: { ODDS_API_KEY: 'FAKE', SUPABASE_URL: 'http://fake', SUPABASE_SERVICE_ROLE_KEY: 'fake' },
-      sports: ['nba'],
+      sports: [],
       runLabel: '4pm ET',
       runDate: '2026-04-07',
       dryRun: true,

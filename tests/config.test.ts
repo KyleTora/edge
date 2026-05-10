@@ -7,18 +7,16 @@ describe('parseConfig', () => {
       books: ['betmgm', 'draftkings'],
       manual_books: ['thescore'],
       sharp_anchor: 'pinnacle',
-      daily_picks: 5,
       sports: ['nba'],
       bankroll_units: 100,
       unit_size_cad: 25,
-      closing_line_capture_minutes_before_game: 5,
     }
     const cfg = parseConfig(raw)
     expect(cfg.books).toEqual(['betmgm', 'draftkings'])
-    expect(cfg.daily_picks).toBe(5)
+    expect(cfg.parlay.target_odds).toBe(100)
   })
 
-  it('defaults daily_picks to 5 when not provided', () => {
+  it('defaults parlay block when not provided', () => {
     const raw = {
       books: ['betmgm'],
       manual_books: [],
@@ -26,10 +24,11 @@ describe('parseConfig', () => {
       sports: ['nba'],
       bankroll_units: 100,
       unit_size_cad: 25,
-      closing_line_capture_minutes_before_game: 5,
     }
     const cfg = parseConfig(raw)
-    expect(cfg.daily_picks).toBe(5)
+    expect(cfg.parlay.target_odds).toBe(100)
+    expect(cfg.parlay.min_legs).toBe(2)
+    expect(cfg.parlay.stake_base).toBe(10)
   })
 
   it('requires at least one book', () => {
@@ -38,11 +37,9 @@ describe('parseConfig', () => {
         books: [],
         manual_books: [],
         sharp_anchor: 'pinnacle',
-        daily_picks: 5,
         sports: ['nba'],
         bankroll_units: 100,
         unit_size_cad: 25,
-        closing_line_capture_minutes_before_game: 5,
       })
     ).toThrow()
   })

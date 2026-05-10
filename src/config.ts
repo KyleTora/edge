@@ -8,11 +8,25 @@ export const ConfigSchema = z.object({
   books: z.array(z.string()).min(1),
   manual_books: z.array(z.string()),
   sharp_anchor: z.literal('pinnacle'),
-  daily_picks: z.number().int().positive().default(5),
   sports: z.array(z.string()).min(1),
   bankroll_units: z.number().positive(),
   unit_size_cad: z.number().positive(),
-  closing_line_capture_minutes_before_game: z.number().int().positive(),
+  parlay: z.object({
+    target_odds: z.number().default(100),
+    odds_tolerance: z.tuple([z.number(), z.number()]).default([-110, 130]),
+    min_legs: z.number().default(2),
+    max_legs: z.number().default(3),
+    min_leg_prob: z.number().default(0.70),
+    max_leg_prob: z.number().default(0.85),
+    filler_min_prob: z.number().default(0.75),
+    stake_base: z.number().default(10),
+    stake_multiplier: z.number().default(2),
+    prop_markets: z.object({
+      nba: z.array(z.string()).default(['points','rebounds','assists','threes_made']),
+      mlb: z.array(z.string()).default(['hits','total_bases','rbis','strikeouts_pitcher']),
+      nhl: z.array(z.string()).default(['shots_on_goal','points_player']),
+    }).default({}),
+  }).default({}),
 })
 
 export type Config = z.infer<typeof ConfigSchema>

@@ -80,13 +80,14 @@ export async function runCard(input: RunCardInput): Promise<RunCardResult> {
 
   if (input.mode === 'morning') {
     const existing = await listActivePicksForCardDate(input.supabase, cardDate)
-    if (existing.length >= input.config.daily_picks) {
+    const dailyPicks = 5
+    if (existing.length >= dailyPicks) {
       if (input.print) input.print(renderCardTable(existing))
       return { picks: existing }
     }
     const ranked = await fetchAllRanked(input.sports, input.config, input.env, detectedAt)
     const existingIds = new Set(existing.map((p) => p.id))
-    const slotsLeft = input.config.daily_picks - existing.length
+    const slotsLeft = dailyPicks - existing.length
     const newCandidates = ranked.filter((c) => !existingIds.has(c.id)).slice(0, slotsLeft)
 
     const addedPicks: PickRow[] = []
@@ -111,7 +112,7 @@ export async function runCard(input: RunCardInput): Promise<RunCardResult> {
     ranked,
     alreadySwappedOffIds,
     now,
-    input.config.daily_picks
+    5
   )
 
   for (const p of resolution.drop) {
