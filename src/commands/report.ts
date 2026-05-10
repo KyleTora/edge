@@ -1,71 +1,66 @@
+// src/commands/report.ts
+// Re-renders today's parlay email and sends it (or prints in dry-run).
+// Useful if the morning send failed or you want to re-deliver to a new address.
 import type { EdgeSupabase } from '../db/client.js'
 import type { Config, Env } from '../config.js'
-import { runCard, type CardMode } from './card.js'
-import { renderEmail, type RenderedEmail } from '../email/render.js'
-import { sendReportEmail } from '../email/send.js'
-import { getLastQuotaSnapshot } from '../quota.js'
-import type { PickRow } from '../db/queries.js'
+import { getParlayByCardDate, listLegs, getLifetimeRecord } from '../db/queries.js'
+import { renderParlayEmail } from '../email/parlay-template.js'
+import { signMarkToken } from '../parlay/sign.js'
+import { sendEmail } from '../email/send.js'
 
 export interface RunReportInput {
   supabase: EdgeSupabase
   config: Config
   env: Env
-  sports: string[]
-  runLabel: string
-  runDate: string
-  dryRun: boolean
-  mode?: CardMode                     // default: 'refresh'
-  resendApiKey?: string
-  emailTo?: string
-  emailFrom?: string
+  cardDate?: string
+  dryRun?: boolean
+  print?: (msg: string) => void
 }
 
-export interface RunReportResult {
-  picks: PickRow[]
-  email: RenderedEmail
-  sent: boolean
-  resendId?: string
-}
+export async function runReport(input: RunReportInput): Promise<{ sent: boolean }> {
+  const cardDate =
+    input.cardDate ??
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date())
+  const parlay = await getParlayByCardDate(input.supabase, cardDate)
+  if (!parlay) throw new Error(`no parlay for ${cardDate}; run \`edge scan\` first`)
+  const legs = await listLegs(input.supabase, parlay.id)
+  const lifetime = await getLifetimeRecord(input.supabase)
 
-export async function runReport(input: RunReportInput): Promise<RunReportResult> {
-  const mode: CardMode = input.mode ?? 'refresh'
-  const detectedAt = new Date().toISOString()
-  const cardResult = await runCard({
-    supabase: input.supabase,
-    config: input.config,
-    env: input.env,
-    mode,
-    sports: input.sports,
-    detectedAt,
-  })
+  const trackerBase = input.env.TRACKER_BASE_URL
+  const signingSecret = input.env.TRACKER_SIGNING_SECRET
+  const buildUrl = (action: 'bet'|'skip') =>
+    trackerBase && signingSecret
+      ? `${trackerBase}/mark?p=${parlay.id}&a=${action}&t=${signMarkToken(parlay.id, action, signingSecret)}`
+      : ''
 
-  const email = renderEmail({
-    picks: cardResult.picks,
-    quota: getLastQuotaSnapshot(),
-    runLabel: input.runLabel,
-    runDate: input.runDate,
-    sportsScanned: input.sports,
-    swapSummary: cardResult.swapSummary,
+  const email = renderParlayEmail({
+    cardDate, parlayId: parlay.id,
+    combinedOdds: parlay.combined_odds, combinedProb: parlay.combined_prob,
+    recommendedStake: parlay.recommended_stake, streakAtCreation: parlay.streak_at_creation,
+    lifetime,
+    legs: legs.map((l) => ({
+      player_name: l.player_name, prop_market: l.prop_market, prop_line: l.prop_line,
+      prop_side: l.prop_side, price_american: l.price_american, true_prob: l.true_prob,
+      is_filler: l.is_filler, book: l.book, sport: l.sport, game_label: '',
+    })),
+    betUrl: buildUrl('bet'), skipUrl: buildUrl('skip'),
+    noParlayReason: legs.length === 0 ? (parlay.notes ?? undefined) : undefined,
   })
 
   if (input.dryRun) {
-    return { picks: cardResult.picks, email, sent: false }
+    input.print?.(`SUBJECT: ${email.subject}`)
+    input.print?.(email.html)
+    return { sent: false }
   }
-
-  if (!input.resendApiKey || !input.emailTo || !input.emailFrom) {
-    throw new Error('resendApiKey, emailTo, and emailFrom are required when dryRun is false')
+  if (!input.env.RESEND_API_KEY || !input.env.REPORT_EMAIL_TO || !input.env.REPORT_EMAIL_FROM) {
+    throw new Error('Resend env vars missing')
   }
-
-  const csvFilename = `edge-picks-${input.runDate}-${input.runLabel.replace(/\W+/g, '_')}.csv`
-  const result = await sendReportEmail({
-    apiKey: input.resendApiKey,
-    from: input.emailFrom,
-    to: input.emailTo,
+  await sendEmail({
+    apiKey: input.env.RESEND_API_KEY,
+    from: input.env.REPORT_EMAIL_FROM,
+    to: input.env.REPORT_EMAIL_TO,
     subject: email.subject,
     html: email.html,
-    csvFilename,
-    csvContent: email.csv,
   })
-
-  return { picks: cardResult.picks, email, sent: true, resendId: result.id }
+  return { sent: true }
 }
