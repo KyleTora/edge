@@ -1,333 +1,132 @@
+// src/db/queries.ts
 import type { EdgeSupabase } from './client.js'
 
-export interface PickRow {
+export interface ParlayRow {
   id: string
-  detected_at: string
-  sport: string
-  game_id: string
-  game_date: string
-  game_time: string
-  away_team: string
-  home_team: string
-  market: 'moneyline' | 'total' | 'spread'
-  side: 'home' | 'away' | 'over' | 'under'
-  line: number | null
-  best_book: string
-  best_price: number
-  sharp_book: string
-  sharp_implied: number
-  ev_pct: number
-  all_prices: Record<string, number>
-  score: number
   card_date: string
-  status: 'active' | 'swapped_off'
+  combined_odds: number
+  combined_prob: number
+  ev_pct: number
+  recommended_stake: number
+  streak_at_creation: number
+  status: 'bet' | 'skipped' | 'won' | 'lost' | 'void'
+  result_pnl: number | null
+  bet_marked_at: string | null
+  graded_at: string | null
+  notes: string | null
+  created_at: string
 }
 
-/**
- * Insert a pick if its id does not already exist. Returns true on insert,
- * false if the row already existed (idempotent re-detection).
- */
-export async function upsertPick(supabase: EdgeSupabase, pick: PickRow): Promise<boolean> {
-  // Check existence first so we can report whether this was a new insert.
-  const existing = await supabase.from('edge_picks').select('id').eq('id', pick.id).limit(1)
-  if (existing.error) throw new Error(`upsertPick.select error: ${existing.error.message}`)
-  if (existing.data && existing.data.length > 0) return false
-
-  const ins = await supabase.from('edge_picks').insert(pick)
-  if (ins.error) {
-    // Race: another process inserted between our select and insert. Treat as duplicate.
-    if (ins.error.code === '23505') return false
-    throw new Error(`upsertPick.insert error: ${ins.error.message}`)
-  }
-  return true
-}
-
-export async function listPicksForDate(
-  supabase: EdgeSupabase,
-  gameDate: string
-): Promise<PickRow[]> {
-  const res = await supabase
-    .from('edge_picks')
-    .select('*')
-    .eq('game_date', gameDate)
-    .order('ev_pct', { ascending: false })
-  if (res.error) throw new Error(`listPicksForDate error: ${res.error.message}`)
-  return (res.data ?? []) as PickRow[]
-}
-
-export async function listPicksForCardDate(
-  supabase: EdgeSupabase,
-  cardDate: string
-): Promise<PickRow[]> {
-  const res = await supabase
-    .from('edge_picks')
-    .select('*')
-    .eq('card_date', cardDate)
-    .neq('status', 'swapped_off')
-    .order('score', { ascending: false })
-  if (res.error) throw new Error(`listPicksForCardDate error: ${res.error.message}`)
-  return (res.data ?? []) as PickRow[]
-}
-
-export interface ResultRow {
+export interface ParlayLegRow {
+  id: string
+  parlay_id: string
+  sport: 'nba' | 'mlb' | 'nhl'
   game_id: string
-  sport: string
-  game_date: string
-  home_score: number
-  away_score: number
-  status: 'final' | 'postponed' | 'canceled'
-  resolved_at: string
+  player_id: string
+  player_name: string
+  prop_market: string
+  prop_line: number
+  prop_side: 'over' | 'under'
+  book: string
+  price_american: number
+  pinnacle_prob: number | null
+  consensus_prob: number | null
+  true_prob: number
+  ev_pct: number
+  is_filler: boolean
+  result: 'pending' | 'hit' | 'miss' | 'void'
+  actual_value: number | null
+  created_at: string
 }
 
-export interface PickGradeRow {
-  pick_id: string
-  outcome: 'won' | 'lost' | 'push' | 'void'
-  graded_at: string
+export interface StreakRow {
+  id: number
+  current_streak: number
+  next_stake: number
+  bankroll_pnl: number
+  updated_at: string
 }
 
-export async function upsertResult(supabase: EdgeSupabase, row: ResultRow): Promise<void> {
-  const res = await supabase.from('edge_results').upsert(row, { onConflict: 'game_id' })
-  if (res.error) throw new Error(`upsertResult error: ${res.error.message}`)
+export async function getStreakState(supabase: EdgeSupabase): Promise<StreakRow> {
+  const { data, error } = await supabase.from('edge_streak_state').select('*').eq('id', 1).single()
+  if (error) throw new Error(`getStreakState: ${error.message}`)
+  return data as StreakRow
 }
 
-export async function insertPickGrade(supabase: EdgeSupabase, row: PickGradeRow): Promise<void> {
-  const res = await supabase.from('edge_pick_grades').upsert(row, { onConflict: 'pick_id' })
-  if (res.error) throw new Error(`insertPickGrade error: ${res.error.message}`)
+export async function updateStreakState(supabase: EdgeSupabase, patch: Partial<Omit<StreakRow,'id'|'updated_at'>>): Promise<void> {
+  const { error } = await supabase
+    .from('edge_streak_state')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', 1)
+  if (error) throw new Error(`updateStreakState: ${error.message}`)
 }
 
-export async function getResultByGameId(
+export async function getParlayByCardDate(supabase: EdgeSupabase, cardDate: string): Promise<ParlayRow | null> {
+  const { data, error } = await supabase.from('edge_parlays').select('*').eq('card_date', cardDate).maybeSingle()
+  if (error) throw new Error(`getParlayByCardDate: ${error.message}`)
+  return (data as ParlayRow) ?? null
+}
+
+export async function insertParlayWithLegs(
   supabase: EdgeSupabase,
-  gameId: string
-): Promise<ResultRow | null> {
-  const res = await supabase.from('edge_results').select('*').eq('game_id', gameId).limit(1)
-  if (res.error) throw new Error(`getResultByGameId error: ${res.error.message}`)
-  return (res.data?.[0] as ResultRow | undefined) ?? null
+  parlay: Omit<ParlayRow, 'id' | 'created_at' | 'result_pnl' | 'bet_marked_at' | 'graded_at'>,
+  legs: Omit<ParlayLegRow, 'id' | 'parlay_id' | 'created_at' | 'result' | 'actual_value'>[],
+): Promise<{ parlay: ParlayRow; legs: ParlayLegRow[] }> {
+  const { data: parlayData, error: pErr } = await supabase.from('edge_parlays').insert(parlay).select('*').single()
+  if (pErr) throw new Error(`insertParlay: ${pErr.message}`)
+  const parlayRow = parlayData as ParlayRow
+  const legRows = legs.map((l) => ({ ...l, parlay_id: parlayRow.id }))
+  const { data: legsData, error: lErr } = await supabase.from('edge_parlay_legs').insert(legRows).select('*')
+  if (lErr) throw new Error(`insertLegs: ${lErr.message}`)
+  return { parlay: parlayRow, legs: legsData as ParlayLegRow[] }
 }
 
-/**
- * Picks whose game_date is within `lookbackDays` of `referenceDate` (YYYY-MM-DD)
- * and which have NO row in edge_pick_grades. Implementation: pull picks in date
- * range, pull all grades for those picks, filter in memory. The volumes are tiny
- * (<500 picks/day) so this is fine and avoids the foot-gun of trying to express
- * a NOT EXISTS via the Supabase query builder.
- */
-export async function listPicksAwaitingGrade(
-  supabase: EdgeSupabase,
-  referenceDate: string,
-  lookbackDays: number
-): Promise<PickRow[]> {
-  const ref = new Date(referenceDate + 'T00:00:00Z')
-  const start = new Date(ref)
-  start.setUTCDate(start.getUTCDate() - lookbackDays)
-  const startStr = start.toISOString().slice(0, 10)
-
-  const picksRes = await supabase
-    .from('edge_picks')
+export async function listPendingParlays(supabase: EdgeSupabase): Promise<ParlayRow[]> {
+  const { data, error } = await supabase
+    .from('edge_parlays')
     .select('*')
-    .gte('game_date', startStr)
-    .lte('game_date', referenceDate)
-    .neq('status', 'swapped_off')
-  if (picksRes.error) throw new Error(`listPicksAwaitingGrade.picks error: ${picksRes.error.message}`)
-  const picks = (picksRes.data ?? []) as PickRow[]
-  if (picks.length === 0) return []
-
-  const gradesRes = await supabase
-    .from('edge_pick_grades')
-    .select('pick_id')
-    .in(
-      'pick_id',
-      picks.map((p) => p.id)
-    )
-  if (gradesRes.error) throw new Error(`listPicksAwaitingGrade.grades error: ${gradesRes.error.message}`)
-  const graded = new Set((gradesRes.data ?? []).map((g: { pick_id: string }) => g.pick_id))
-  return picks.filter((p) => !graded.has(p.id))
+    .is('graded_at', null)
+    .order('card_date', { ascending: true })
+  if (error) throw new Error(`listPendingParlays: ${error.message}`)
+  return (data as ParlayRow[]) ?? []
 }
 
-export interface ClosingLineRow {
-  pick_id: string
-  closed_at: string
-  sharp_close: number
-  sharp_implied: number
-  best_book_close: number | null
-  capture_lag_min: number
+export async function listLegs(supabase: EdgeSupabase, parlayId: string): Promise<ParlayLegRow[]> {
+  const { data, error } = await supabase.from('edge_parlay_legs').select('*').eq('parlay_id', parlayId)
+  if (error) throw new Error(`listLegs: ${error.message}`)
+  return (data as ParlayLegRow[]) ?? []
 }
 
-export async function insertClosingLine(
+export async function updateLegResult(
   supabase: EdgeSupabase,
-  row: ClosingLineRow
+  legId: string,
+  result: 'hit' | 'miss' | 'void',
+  actual_value: number | null,
 ): Promise<void> {
-  const res = await supabase.from('edge_closing_lines').upsert(row, { onConflict: 'pick_id' })
-  if (res.error) throw new Error(`insertClosingLine error: ${res.error.message}`)
+  const { error } = await supabase.from('edge_parlay_legs').update({ result, actual_value }).eq('id', legId)
+  if (error) throw new Error(`updateLegResult: ${error.message}`)
 }
 
-/**
- * Picks whose game_time starts within the next `windowMinutes` from `now`
- * and which do NOT already have a row in edge_closing_lines. Same in-memory
- * anti-join pattern as listPicksAwaitingGrade.
- */
-export async function listPicksAwaitingClose(
+export async function updateParlayResolution(
   supabase: EdgeSupabase,
-  now: Date,
-  windowMinutes: number
-): Promise<PickRow[]> {
-  const startIso = now.toISOString()
-  const endIso = new Date(now.getTime() + windowMinutes * 60_000).toISOString()
-
-  const picksRes = await supabase
-    .from('edge_picks')
-    .select('*')
-    .gte('game_time', startIso)
-    .lt('game_time', endIso)
-    .neq('status', 'swapped_off')
-  if (picksRes.error)
-    throw new Error(`listPicksAwaitingClose.picks error: ${picksRes.error.message}`)
-  const picks = (picksRes.data ?? []) as PickRow[]
-  if (picks.length === 0) return []
-
-  const linesRes = await supabase
-    .from('edge_closing_lines')
-    .select('pick_id')
-    .in(
-      'pick_id',
-      picks.map((p) => p.id)
-    )
-  if (linesRes.error)
-    throw new Error(`listPicksAwaitingClose.lines error: ${linesRes.error.message}`)
-  const captured = new Set((linesRes.data ?? []).map((r: { pick_id: string }) => r.pick_id))
-  return picks.filter((p) => !captured.has(p.id))
-}
-
-export interface GradedPickRow extends PickRow {
-  outcome: 'won' | 'lost' | 'push' | 'void'
-  graded_at: string
-}
-
-/**
- * Picks whose game_date falls in [startDate, endDate] AND which have a grade row.
- * Returns a flat shape (pick fields + outcome + graded_at). The volumes are tiny,
- * so we fetch picks and grades separately and join in memory.
- */
-export async function getPicksWithGradesInRange(
-  supabase: EdgeSupabase,
-  startDate: string,
-  endDate: string
-): Promise<GradedPickRow[]> {
-  const picksRes = await supabase
-    .from('edge_picks')
-    .select('*')
-    .gte('game_date', startDate)
-    .lte('game_date', endDate)
-    .neq('status', 'swapped_off')
-  if (picksRes.error) throw new Error(`getPicksWithGradesInRange.picks: ${picksRes.error.message}`)
-  const picks = (picksRes.data ?? []) as PickRow[]
-  if (picks.length === 0) return []
-
-  const gradesRes = await supabase
-    .from('edge_pick_grades')
-    .select('*')
-    .in(
-      'pick_id',
-      picks.map((p) => p.id)
-    )
-  if (gradesRes.error) throw new Error(`getPicksWithGradesInRange.grades: ${gradesRes.error.message}`)
-  const grades = new Map(
-    ((gradesRes.data ?? []) as PickGradeRow[]).map((g) => [g.pick_id, g])
-  )
-
-  const result: GradedPickRow[] = []
-  for (const p of picks) {
-    const g = grades.get(p.id)
-    if (!g) continue
-    result.push({ ...p, outcome: g.outcome, graded_at: g.graded_at })
-  }
-  return result
-}
-
-/**
- * Picks whose grade row has graded_at >= sinceIso. Joins to edge_picks in
- * memory using the same anti-join pattern as listPicksAwaitingGrade. Orphan
- * grade rows (no matching pick) are silently dropped — they should not exist
- * but we don't want one bad row to take down the recap email.
- */
-export async function getPicksGradedSince(
-  supabase: EdgeSupabase,
-  sinceIso: string
-): Promise<GradedPickRow[]> {
-  const gradesRes = await supabase
-    .from('edge_pick_grades')
-    .select('*')
-    .gte('graded_at', sinceIso)
-  if (gradesRes.error) throw new Error(`getPicksGradedSince.grades: ${gradesRes.error.message}`)
-  const grades = (gradesRes.data ?? []) as PickGradeRow[]
-  if (grades.length === 0) return []
-
-  const picksRes = await supabase
-    .from('edge_picks')
-    .select('*')
-    .in(
-      'id',
-      grades.map((g) => g.pick_id)
-    )
-    .neq('status', 'swapped_off')
-  if (picksRes.error) throw new Error(`getPicksGradedSince.picks: ${picksRes.error.message}`)
-  const pickById = new Map(((picksRes.data ?? []) as PickRow[]).map((p) => [p.id, p]))
-
-  const result: GradedPickRow[] = []
-  for (const g of grades) {
-    const p = pickById.get(g.pick_id)
-    if (!p) continue
-    result.push({ ...p, outcome: g.outcome, graded_at: g.graded_at })
-  }
-  return result
-}
-
-export async function listActivePicksForCardDate(
-  supabase: EdgeSupabase,
-  cardDate: string
-): Promise<PickRow[]> {
-  const res = await supabase
-    .from('edge_picks')
-    .select('*')
-    .eq('card_date', cardDate)
-    .eq('status', 'active')
-    .order('score', { ascending: false })
-  if (res.error) throw new Error(`listActivePicksForCardDate error: ${res.error.message}`)
-  return (res.data ?? []) as PickRow[]
-}
-
-export async function listSwappedOffPickIdsForCardDate(
-  supabase: EdgeSupabase,
-  cardDate: string
-): Promise<Set<string>> {
-  const res = await supabase
-    .from('edge_picks')
-    .select('id')
-    .eq('card_date', cardDate)
-    .eq('status', 'swapped_off')
-  if (res.error) throw new Error(`listSwappedOffPickIdsForCardDate error: ${res.error.message}`)
-  const rows = (res.data ?? []) as Array<{ id: string }>
-  return new Set(rows.map((r) => r.id))
-}
-
-export async function updatePickStatus(
-  supabase: EdgeSupabase,
-  id: string,
-  status: 'active' | 'swapped_off'
+  parlayId: string,
+  patch: Partial<Pick<ParlayRow, 'status' | 'result_pnl' | 'graded_at'>>,
 ): Promise<void> {
-  const res = await supabase.from('edge_picks').update({ status }).eq('id', id)
-  if (res.error) throw new Error(`updatePickStatus error: ${res.error.message}`)
+  const { error } = await supabase.from('edge_parlays').update(patch).eq('id', parlayId)
+  if (error) throw new Error(`updateParlayResolution: ${error.message}`)
 }
 
-export async function getClosingLinesForPicks(
-  supabase: EdgeSupabase,
-  pickIds: string[]
-): Promise<Map<string, ClosingLineRow>> {
-  if (pickIds.length === 0) return new Map()
-  const res = await supabase.from('edge_closing_lines').select('*').in('pick_id', pickIds)
-  if (res.error) throw new Error(`getClosingLinesForPicks: ${res.error.message}`)
-  const map = new Map<string, ClosingLineRow>()
-  for (const row of (res.data ?? []) as ClosingLineRow[]) {
-    map.set(row.pick_id, row)
+export async function getLifetimeRecord(supabase: EdgeSupabase): Promise<{ wins: number; losses: number; pnl: number }> {
+  const { data, error } = await supabase
+    .from('edge_parlays')
+    .select('status, result_pnl')
+    .in('status', ['won', 'lost'])
+  if (error) throw new Error(`getLifetimeRecord: ${error.message}`)
+  let wins = 0, losses = 0, pnl = 0
+  for (const row of (data ?? []) as Array<{ status: string; result_pnl: number | null }>) {
+    if (row.status === 'won') wins += 1
+    else if (row.status === 'lost') losses += 1
+    pnl += Number(row.result_pnl ?? 0)
   }
-  return map
+  return { wins, losses, pnl }
 }
