@@ -39,6 +39,11 @@ export interface Env {
   ODDS_API_KEY: string
   SUPABASE_URL: string
   SUPABASE_SERVICE_ROLE_KEY: string
+  RESEND_API_KEY?: string
+  REPORT_EMAIL_TO?: string
+  REPORT_EMAIL_FROM?: string
+  TRACKER_BASE_URL?: string
+  TRACKER_SIGNING_SECRET?: string
 }
 
 export function loadEnv(): Env {
@@ -60,6 +65,11 @@ export function loadEnv(): Env {
     ODDS_API_KEY: oddsKey,
     SUPABASE_URL: supabaseUrl,
     SUPABASE_SERVICE_ROLE_KEY: supabaseKey,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    REPORT_EMAIL_TO: process.env.REPORT_EMAIL_TO,
+    REPORT_EMAIL_FROM: process.env.REPORT_EMAIL_FROM,
+    TRACKER_BASE_URL: process.env.TRACKER_BASE_URL,
+    TRACKER_SIGNING_SECRET: process.env.TRACKER_SIGNING_SECRET,
   }
 }
 

@@ -31,6 +31,11 @@ export interface SendEmailResult {
   id: string
 }
 
+/** Alias used by the parlay pipeline (scan/report commands). */
+export async function sendEmail(input: Omit<SendEmailInput, 'csvFilename' | 'csvContent' | 'client'>): Promise<SendEmailResult> {
+  return sendReportEmail(input)
+}
+
 export async function sendReportEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const client: ResendLike = input.client ?? (new Resend(input.apiKey) as unknown as ResendLike)
 

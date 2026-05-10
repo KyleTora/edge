@@ -98,3 +98,33 @@ export function fetchActionNetworkMlb(): Promise<ActionNetworkOdds[]> {
 export function fetchActionNetworkNhl(): Promise<ActionNetworkOdds[]> {
   return fetchScoreboard('nhl')
 }
+
+export interface ANGameSummary {
+  game_id: string
+  start_time: string
+  home_team: string
+  away_team: string
+}
+
+export async function listTodaysGames(sport: 'nba' | 'mlb' | 'nhl'): Promise<ANGameSummary[]> {
+  switch (sport) {
+    case 'nba': {
+      const games = await fetchActionNetworkNba()
+      return games.map((g) => ({
+        game_id: g.gameId, start_time: g.startTime, home_team: g.homeTeam, away_team: g.awayTeam,
+      }))
+    }
+    case 'mlb': {
+      const games = await fetchActionNetworkMlb()
+      return games.map((g) => ({
+        game_id: g.gameId, start_time: g.startTime, home_team: g.homeTeam, away_team: g.awayTeam,
+      }))
+    }
+    case 'nhl': {
+      const games = await fetchActionNetworkNhl()
+      return games.map((g) => ({
+        game_id: g.gameId, start_time: g.startTime, home_team: g.homeTeam, away_team: g.awayTeam,
+      }))
+    }
+  }
+}
