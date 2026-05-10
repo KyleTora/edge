@@ -9,7 +9,7 @@ describe('parseNhlBoxScore', () => {
   it('extracts skater stats keyed by player id', () => {
     const stats = parseNhlBoxScore(fixture)
     expect(stats.gameStatus).toBe('final')
-    const mcdavid = stats.byPlayer['8478402']
+    const mcdavid = stats.byPlayer['8478402']!
     expect(mcdavid.shots_on_goal).toBe(5)
     expect(mcdavid.points_player).toBe(2)
   })

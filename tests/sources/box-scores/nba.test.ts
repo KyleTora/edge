@@ -11,7 +11,7 @@ describe('parseNbaBoxScore', () => {
   it('extracts player stats by player_id', () => {
     const stats = parseNbaBoxScore(fixture)
     expect(stats.gameStatus).toBe('final')
-    const lebron = stats.byPlayer['1628378']
+    const lebron = stats.byPlayer['1628378']!
     expect(lebron.points).toBe(28)
     expect(lebron.rebounds).toBe(8)
   })

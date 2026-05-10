@@ -8,7 +8,7 @@ const fixture = JSON.parse(readFileSync(join(__dirname, '../../fixtures/box-scor
 describe('parseMlbBoxScore', () => {
   it('extracts batting stats keyed by player id', () => {
     const stats = parseMlbBoxScore(fixture)
-    const vlad = stats.byPlayer['660271']
+    const vlad = stats.byPlayer['660271']!
     expect(vlad.hits).toBe(2)
     expect(vlad.total_bases).toBe(4)
     expect(vlad.rbis).toBe(1)

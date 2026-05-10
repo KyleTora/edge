@@ -72,7 +72,7 @@ export function parseActionNetworkProps(
   payload: ANPropsPayload,
   opts: ParseOptions,
 ): PropMarket[] {
-  const map = MAPS[opts.sport]
+  const map = MAPS[opts.sport] ?? {}
   const playerById = new Map<number, string>(payload.players.map((p) => [p.id, p.full_name]))
   const out: PropMarket[] = []
 

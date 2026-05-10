@@ -29,9 +29,9 @@ describe('propMarketsToCandidates', () => {
     const over = candidates.filter((c) => c.prop_side === 'over')
     expect(over.length).toBe(1)
     // best price for over = least negative (closest to underdog) = -230
-    expect(over[0].price_american).toBe(-230)
-    expect(over[0].book).toBe('betmgm')
-    expect(over[0].true_prob).toBeCloseTo(0.65, 1)  // pinnacle devig of -220/170
+    expect(over[0]!.price_american).toBe(-230)
+    expect(over[0]!.book).toBe('betmgm')
+    expect(over[0]!.true_prob).toBeCloseTo(0.65, 1)  // pinnacle devig of -220/170
   })
 
   it('omits sides with no books in allowed list', () => {

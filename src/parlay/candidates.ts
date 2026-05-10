@@ -12,7 +12,7 @@ function bestPriceForSide(side: PropSide, allowed: string[]): { book: string; pr
   const filtered = side.books.filter((b) => allowed.includes(b.book))
   if (filtered.length === 0) return null
   // for `over`, "best" = least negative / most positive (highest payout)
-  return filtered.reduce((acc, b) => (b.price > acc.price ? b : acc), filtered[0])
+  return filtered.reduce((acc, b) => (b.price > acc.price ? b : acc), filtered[0]!)
 }
 
 export function propMarketsToCandidates(

@@ -39,6 +39,7 @@ function combinations<T>(items: T[], k: number): T[][] {
   if (k === 0) return [[]]
   if (items.length < k) return []
   const [head, ...rest] = items
+  if (head === undefined) return []
   const withHead = combinations(rest, k - 1).map((c) => [head, ...c])
   const withoutHead = combinations(rest, k)
   return [...withHead, ...withoutHead]
@@ -99,6 +100,7 @@ export function buildParlay(candidates: LegCandidate[], cfg: BuilderConfig): Bui
   })
 
   const winner = pool[0]
+  if (!winner) return null
   const legs = winner.combo.map((l) => ({
     ...l,
     is_filler: !isPlusEv(l),
