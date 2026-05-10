@@ -1,0 +1,15 @@
+{
+  "teams": {
+    "home": {
+      "players": {
+        "ID660271": {
+          "person": { "id": 660271, "fullName": "Vladimir Guerrero Jr." },
+          "stats": { "batting": { "hits": 2, "totalBases": 4, "rbi": 1 } }
+        }
+      }
+    },
+    "away": { "players": {} }
+  },
+  "info": [],
+  "game_status": "Final"
+}
