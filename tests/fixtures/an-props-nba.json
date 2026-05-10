@@ -1,0 +1,27 @@
+{
+  "markets": [
+    {
+      "name": "core_bet_type_44_points",
+      "rules": { "options": ["over", "under"] },
+      "books": [
+        {
+          "book_id": 15,
+          "odds": [
+            { "player_id": 9001, "value": 22.5, "side": "over",  "money": -240 },
+            { "player_id": 9001, "value": 22.5, "side": "under", "money": 180 }
+          ]
+        },
+        {
+          "book_id": 238,
+          "odds": [
+            { "player_id": 9001, "value": 22.5, "side": "over",  "money": -220 },
+            { "player_id": 9001, "value": 22.5, "side": "under", "money": 170 }
+          ]
+        }
+      ]
+    }
+  ],
+  "players": [
+    { "id": 9001, "full_name": "LeBron James" }
+  ]
+}
