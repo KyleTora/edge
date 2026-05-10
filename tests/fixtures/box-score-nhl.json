@@ -1,0 +1,13 @@
+{
+  "id": 2025020001,
+  "gameState": "FINAL",
+  "playerByGameStats": {
+    "homeTeam": {
+      "skaters": [
+        { "playerId": 8478402, "name": { "default": "Connor McDavid" }, "shots": 5, "points": 2 }
+      ],
+      "goalies": []
+    },
+    "awayTeam": { "skaters": [], "goalies": [] }
+  }
+}
