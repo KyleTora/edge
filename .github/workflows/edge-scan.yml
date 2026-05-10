@@ -1,0 +1,26 @@
+# .github/workflows/edge-scan.yml
+name: edge-scan (10am ET)
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 10:00 ET when ET is UTC-4 (DST). For year-round, two crons or workflow_dispatch.
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npm run build
+      - run: node dist/src/cli.js scan
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
+          REPORT_EMAIL_FROM: ${{ secrets.REPORT_EMAIL_FROM }}
+          TRACKER_BASE_URL: ${{ secrets.TRACKER_BASE_URL }}
+          TRACKER_SIGNING_SECRET: ${{ secrets.TRACKER_SIGNING_SECRET }}
