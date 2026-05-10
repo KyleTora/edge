@@ -1,136 +1,62 @@
 # edge
 
-Personal +EV sports betting CLI. Surfaces betting opportunities by devigging
-Pinnacle (sharp anchor) and comparing prices to your allowlisted books.
-
-**Design spec:** see `../ballpark-social/docs/superpowers/specs/2026-04-06-edge-cli-design.md`
+Daily player-prop parlay generator. Builds a 2-3 leg parlay targeting roughly
++100 American odds, with each leg ~70-75% probable to hit. Sends an email at
+10am ET with click-to-mark "Skip"/"Confirm bet" buttons. Grades overnight
+and tracks an anti-martingale staking streak ($10 → $20 → $40 → ..., reset
+to $10 on loss).
 
 ## Setup
 
-1. Install dependencies:
-
+1. Install:
    ```bash
    npm install
    ```
-
-2. Create `.env` from the example and add your Odds API key
-   (sign up free at https://the-odds-api.com — 500 req/month tier):
-
+2. Copy `.env.example` to `.env` and set:
+   - `SUPABASE_URL`, `SUPABASE_KEY`
+   - `RESEND_API_KEY`, `REPORT_EMAIL_TO`, `REPORT_EMAIL_FROM`
+   - `TRACKER_BASE_URL` (Cloudflare Worker URL — set after deploying tracker/)
+   - `TRACKER_SIGNING_SECRET` (must match value set in the Worker)
+3. Apply the latest migration to your Supabase project:
+   `migrations/2026-05-10-edge-parlay.sql`
+4. Deploy the click-tracker Worker: see `tracker/README.md`.
+5. Build + link if desired:
    ```bash
-   cp .env.example .env
-   # then edit .env to set ODDS_API_KEY
+   npm run build && npm link
+   export EDGE_HOME=$(pwd)
    ```
-
-3. Review `edge.config.json` and adjust:
-
-   - `books` — your sportsbook allowlist (must match Action Network book names: BetMGM, DraftKings, Caesars, BetRivers, FanDuel, Fanatics)
-   - `sports` — which sports to scan (`nba`, `mlb`, `nhl`)
-   - `ev_threshold` — minimum EV% to surface (default 0.02 = +2%)
-
-4. Build (optional, for global install) and link:
-
-   ```bash
-   npm run build
-   npm link
-   ```
-
-   After `npm link`, set `EDGE_HOME` to the project directory so `edge` can find
-   its config and database from anywhere:
-
-   ```bash
-   export EDGE_HOME=/Users/kyletora/Desktop/Coding/edge
-   ```
-
-   (Add to your shell profile to make permanent.)
-
-   Or run directly with `npm run dev` (uses `tsx`).
 
 ## Usage
 
 ```bash
-edge          # default: scan and print +EV picks
-edge scan     # explicit form
+edge                  # default: scan and email today's parlay
+edge scan             # explicit form
+edge scan --dry-run   # compute but do not write or email
+edge resolve          # grade pending parlays
+edge report           # re-render and resend today's email
 ```
-
-The first run creates `data/edge.db` (SQLite) and inserts any picks that
-exceed the EV threshold. Subsequent runs only insert *new* picks (the same
-pick captured at first detection is preserved with its original price and EV).
 
 ## How it works
 
-1. Fetches odds from Action Network (free) for your allowlisted books
-2. Fetches Pinnacle odds from The Odds API (the sharp anchor)
-3. Joins games by team name and devigs Pinnacle's two-sided markets
-4. For each market, computes EV at every allowlisted book
-5. If best price clears the EV threshold, captures the pick to SQLite
-6. Prints all current picks for today/tomorrow ordered by EV%
+1. **Scan (10am ET):** pulls today's NBA/MLB/NHL games + player-prop markets
+   from Action Network. For each candidate prop, devigs Pinnacle's two-way
+   pricing (or falls back to multi-book consensus) to estimate true
+   probability. Filters to legs with ~70-75% probability, then assembles
+   the 2-3 leg combination whose combined American odds land closest to +100,
+   preferring +EV legs.
+2. **Email:** the parlay is rendered to HTML and emailed via Resend. The
+   email includes signed click-to-mark links (Skip / Confirm bet) that hit
+   a Cloudflare Worker, which updates the parlay status in Supabase.
+3. **Grade (4am ET next day):** for each pending parlay, fetches box scores
+   from the relevant sport's stat API, grades each leg, and applies the
+   anti-martingale streak transition (won → next stake doubles; lost →
+   reset to $10).
 
-## Email Automation (Phase 1.5)
+## Configuration
 
-`edge` can email you a daily digest of +EV picks via GitHub Actions + Resend.
+See `edge.config.json`. Notable knobs under `parlay`:
 
-### One-time setup
-
-1. **Push `edge` to a private GitHub repo.**
-
-   ```bash
-   gh repo create edge --private --source=. --remote=origin --push
-   ```
-
-   (Or create the repo manually in the GitHub UI and push to it.)
-
-2. **Create a Resend account** at [resend.com](https://resend.com) (free tier: 100 emails/day).
-   Generate an API key from the dashboard. Use a "Sending access" key, not full access.
-
-3. **Add four secrets** in your GitHub repo settings → Secrets and variables → Actions:
-
-   - `ODDS_API_KEY` — your Odds API key (same one in your local `.env`)
-   - `RESEND_API_KEY` — from step 2
-   - `REPORT_EMAIL_TO` — the address to send reports to
-   - `REPORT_EMAIL_FROM` — sender address. Use `onboarding@resend.dev` for testing,
-     or a verified domain in production.
-
-4. **Verify the workflow runs** by triggering it manually:
-   GitHub repo → Actions tab → "edge daily report" → "Run workflow"
-
-   Within ~30 seconds you should receive an email.
-
-### Schedule
-
-The workflow runs automatically at:
-
-- **11am ET (15:00 UTC)** — MLB only (catches afternoon baseball games)
-- **4pm ET (20:00 UTC)** — all sports (catches evening NBA/NHL/MLB)
-
-Quota cost: ~16 credits/day = ~480/month, under the 500 free tier.
-
-### Local testing
-
-You can render an email locally without sending it:
-
-```bash
-npm run edge:report -- --sports=mlb --dry-run
-```
-
-This prints the subject, HTML body, and CSV to stdout. Useful for previewing
-formatting changes before pushing.
-
-## Phase 2 (not yet built)
-
-`edge watch`, `edge shop`, `edge place`, `edge record`, `edge resolve`,
-closing-line capture, paper-trade UX. See spec § 9.
-
-## Tests
-
-```bash
-npm test
-```
-
-## Notes
-
-- Single user, local-only. No accounts, no server, no cloud.
-- The user is in Ontario, Canada. US Action Network lines are treated as a
-  proxy for Ontario lines for BetMGM/DraftKings/Caesars/BetRivers.
-- bet365 has no automated feed in v1; tracked under `manual_books` alongside theScore Bet. Re-add it later if you upgrade to a paid Odds API tier.
-- theScore Bet has no usable feed; tracked in `manual_books` only.
-- Pinnacle is used as the sharp anchor; never as a book to bet at.
+- `target_odds`: combined American odds target (default 100)
+- `min_leg_prob`/`max_leg_prob`: probability band for legs
+- `filler_min_prob`: lower bound for legs that aren't strictly +EV
+- `stake_base`/`stake_multiplier`: anti-martingale parameters
