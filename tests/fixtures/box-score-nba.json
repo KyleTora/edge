@@ -1,0 +1,15 @@
+{
+  "game": { "id": "0022500001", "status": "Final" },
+  "players": [
+    {
+      "id": "1628378",
+      "full_name": "LeBron James",
+      "stats": { "points": 28, "rebounds": 8, "assists": 11, "threes_made": 3 }
+    },
+    {
+      "id": "201939",
+      "full_name": "Stephen Curry",
+      "stats": { "points": 32, "rebounds": 4, "assists": 6, "threes_made": 7 }
+    }
+  ]
+}
