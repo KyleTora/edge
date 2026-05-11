@@ -5,7 +5,6 @@ import { fetchActionNetworkProps } from '../sources/action-network-props.js'
 import { propMarketsToCandidates } from '../parlay/candidates.js'
 import { buildParlay } from '../parlay/builder.js'
 import { renderParlayEmail } from '../email/parlay-template.js'
-import { signMarkToken } from '../parlay/sign.js'
 import { sendEmail } from '../email/send.js'
 import {
   getStreakState,
@@ -90,7 +89,7 @@ export async function runScan(input: RunScanInput): Promise<{ parlayId: string |
         cardDate, parlayId: parlay.id,
         combinedOdds: 0, combinedProb: 0, recommendedStake: 0, streakAtCreation: streak.current_streak,
         lifetime,
-        legs: [], betUrl: '', skipUrl: '',
+        legs: [],
         noParlayReason: 'No candidates met thresholds.',
       })
       await sendEmail({
@@ -134,12 +133,6 @@ export async function runScan(input: RunScanInput): Promise<{ parlayId: string |
   )
 
   // 3. Email
-  const trackerBase = input.env.TRACKER_BASE_URL
-  const signingSecret = input.env.TRACKER_SIGNING_SECRET
-  const buildUrl = (action: 'bet'|'skip') =>
-    trackerBase && signingSecret
-      ? `${trackerBase}/mark?p=${parlay.id}&a=${action}&t=${signMarkToken(parlay.id, action, signingSecret)}`
-      : ''
   const email = renderParlayEmail({
     cardDate, parlayId: parlay.id,
     combinedOdds: built.combined_odds, combinedProb: built.combined_prob,
@@ -150,7 +143,6 @@ export async function runScan(input: RunScanInput): Promise<{ parlayId: string |
       prop_side: l.prop_side, price_american: l.price_american, true_prob: l.true_prob,
       is_filler: l.is_filler, book: l.book, sport: l.sport, game_label: '',
     })),
-    betUrl: buildUrl('bet'), skipUrl: buildUrl('skip'),
   })
   let emailSent = false
   if (input.env.RESEND_API_KEY && input.env.REPORT_EMAIL_TO && input.env.REPORT_EMAIL_FROM) {

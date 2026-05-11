@@ -20,8 +20,6 @@ export interface RenderParlayInput {
   streakAtCreation: number
   lifetime: { wins: number; losses: number; pnl: number }
   legs: RenderLegInput[]
-  betUrl: string
-  skipUrl: string
   noParlayReason?: string
 }
 
@@ -87,10 +85,6 @@ export function renderParlayEmail(input: RenderParlayInput): RenderedEmail {
           · bet #${input.streakAtCreation + 1} of current run
         </div>
         ${legs}
-        <div style="margin-top:24px;text-align:center">
-          <a href="${input.skipUrl}" style="display:inline-block;background:#dc2626;color:#fff;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:600;margin-right:8px">Skip this one</a>
-          <a href="${input.betUrl}" style="display:inline-block;background:#f3f4f6;color:#111827;padding:14px 28px;border-radius:6px;text-decoration:none;border:1px solid #d1d5db">Confirm bet</a>
-        </div>
         <div style="margin-top:24px;color:#6b7280;font-size:12px;text-align:center">
           Lifetime: ${input.lifetime.wins}-${input.lifetime.losses} · P&L $${input.lifetime.pnl.toFixed(2)}
         </div>

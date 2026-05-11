@@ -1,8 +1,0 @@
-name = "edge-tracker"
-main = "worker.ts"
-compatibility_date = "2026-05-01"
-
-# Secrets set via `wrangler secret put` (not committed):
-#   SUPABASE_URL
-#   SUPABASE_SERVICE_KEY
-#   SIGNING_SECRET

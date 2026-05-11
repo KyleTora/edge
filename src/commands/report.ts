@@ -5,7 +5,6 @@ import type { EdgeSupabase } from '../db/client.js'
 import type { Config, Env } from '../config.js'
 import { getParlayByCardDate, listLegs, getLifetimeRecord } from '../db/queries.js'
 import { renderParlayEmail } from '../email/parlay-template.js'
-import { signMarkToken } from '../parlay/sign.js'
 import { sendEmail } from '../email/send.js'
 
 export interface RunReportInput {
@@ -26,13 +25,6 @@ export async function runReport(input: RunReportInput): Promise<{ sent: boolean 
   const legs = await listLegs(input.supabase, parlay.id)
   const lifetime = await getLifetimeRecord(input.supabase)
 
-  const trackerBase = input.env.TRACKER_BASE_URL
-  const signingSecret = input.env.TRACKER_SIGNING_SECRET
-  const buildUrl = (action: 'bet'|'skip') =>
-    trackerBase && signingSecret
-      ? `${trackerBase}/mark?p=${parlay.id}&a=${action}&t=${signMarkToken(parlay.id, action, signingSecret)}`
-      : ''
-
   const email = renderParlayEmail({
     cardDate, parlayId: parlay.id,
     combinedOdds: parlay.combined_odds, combinedProb: parlay.combined_prob,
@@ -43,7 +35,6 @@ export async function runReport(input: RunReportInput): Promise<{ sent: boolean 
       prop_side: l.prop_side, price_american: l.price_american, true_prob: l.true_prob,
       is_filler: l.is_filler, book: l.book, sport: l.sport, game_label: '',
     })),
-    betUrl: buildUrl('bet'), skipUrl: buildUrl('skip'),
     noParlayReason: legs.length === 0 ? (parlay.notes ?? undefined) : undefined,
   })
 

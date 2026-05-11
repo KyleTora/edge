@@ -22,5 +22,3 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
           REPORT_EMAIL_FROM: ${{ secrets.REPORT_EMAIL_FROM }}
-          TRACKER_BASE_URL: ${{ secrets.TRACKER_BASE_URL }}
-          TRACKER_SIGNING_SECRET: ${{ secrets.TRACKER_SIGNING_SECRET }}
